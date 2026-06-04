@@ -513,6 +513,56 @@ body {
     color: var(--dark);
 }
 
+/* ------------------- INVENTORY & TABLES ------------------- */
+.premium-table th {
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+}
+
+[dir="rtl"] .premium-table {
+    text-align: right !important;
+}
+
+.premium-table td {
+    padding: 16px;
+    border-bottom: 1px solid var(--gray-bg);
+    color: var(--dark);
+    font-weight: 500;
+}
+
+.premium-table tr:last-child td {
+    border-bottom: none;
+}
+
+.status-ok {
+    color: var(--secondary);
+    background: rgba(0, 166, 153, 0.1);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-warning {
+    color: #F59E0B;
+    background: rgba(245, 158, 11, 0.1);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.status-danger {
+    color: var(--primary);
+    background: rgba(255, 90, 95, 0.1);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
 /* ------------------- DASHBOARD SPECIFICS ------------------- */
 .kpi-grid {
     display: grid;

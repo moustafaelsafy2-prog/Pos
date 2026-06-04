@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('api', {
     getCustomer: (phone) => ipcRenderer.invoke('db-get-customer', phone),
     saveCustomer: (customer) => ipcRenderer.invoke('db-save-customer', customer),
     getDashboardStats: () => ipcRenderer.invoke('db-get-dashboard-stats'),
+    getInventory: () => ipcRenderer.invoke('db-get-inventory'),
     checkLicense: () => ipcRenderer.invoke('check-license'),
     activateLicense: (key) => ipcRenderer.invoke('activate-license', key)
 });

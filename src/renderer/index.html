@@ -27,12 +27,16 @@
         </div>
         <ul class="nav-links">
           <li class="active" onclick="window.switchTab('pos')" id="nav-pos">
-            <span class="nav-icon">📦</span>
+            <span class="nav-icon">🛒</span>
             <span data-i18n="nav_pos" class="nav-text">POS</span>
           </li>
           <li onclick="window.switchTab('dashboard')" id="nav-dashboard">
             <span class="nav-icon">📊</span>
             <span data-i18n="nav_dashboard" class="nav-text">Dashboard</span>
+          </li>
+          <li onclick="window.switchTab('inventory')" id="nav-inventory">
+            <span class="nav-icon">📦</span>
+            <span data-i18n="nav_inventory" class="nav-text">Inventory</span>
           </li>
           <li onclick="window.switchTab('customers')" id="nav-customers">
             <span class="nav-icon">👥</span>
@@ -118,6 +122,35 @@
           </div>
         </div>
 
+      </div>
+
+      <!-- Main Inventory Content -->
+      <div id="main-inventory" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: var(--gray-bg); padding: 40px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+          <h1 data-i18n="nav_inventory" style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">Inventory</h1>
+          <button id="refresh-inventory-btn" class="secondary-btn" style="width: auto; padding: 10px 24px;" data-i18n="refresh">Refresh</button>
+        </div>
+
+        <div class="chart-card">
+          <table class="premium-table" style="width: 100%; text-align: left; border-collapse: collapse;">
+            <thead>
+              <tr style="border-bottom: 2px solid var(--gray-bg); color: var(--gray-text);">
+                <th style="padding: 16px;" data-i18n="item_name">Item Name</th>
+                <th style="padding: 16px;" data-i18n="current_stock">Current Stock</th>
+                <th style="padding: 16px;" data-i18n="unit">Unit</th>
+                <th style="padding: 16px;" data-i18n="status">Status</th>
+              </tr>
+            </thead>
+            <tbody id="inventory-tbody">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Under Construction Panel -->
+      <div id="under-construction-panel" style="display: none; flex: 1; flex-direction: column; justify-content: center; align-items: center; background: var(--gray-bg);">
+          <h1 style="color: var(--gray-text); font-size: 24px;">🚧 Module Under Construction 🚧</h1>
       </div>
 
       <div id="right-panel">
@@ -222,6 +255,7 @@
     <script src="i18n.js"></script>
     <script src="pos.js"></script>
     <script src="dashboard.js"></script>
+    <script src="inventory.js"></script>
     <script src="license.js"></script>
   </body>
 </html>

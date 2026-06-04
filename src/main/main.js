@@ -56,6 +56,10 @@ ipcMain.handle('db-get-dashboard-stats', async () => {
     return await dbManager.getDashboardStats();
 });
 
+ipcMain.handle('db-get-inventory', async () => {
+    return await dbManager.getInventory();
+});
+
 ipcMain.handle('check-license', async () => {
     return await dbManager.checkLicense();
 });

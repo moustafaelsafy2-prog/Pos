@@ -93,7 +93,15 @@ const translations = {
         avg_order_value: "متوسط قيمة الطلب",
         sales_by_type: "المبيعات حسب نوع الطلب",
         sales_by_payment: "المبيعات حسب طريقة الدفع",
-        top_selling_items: "الأصناف الأكثر مبيعاً"
+        top_selling_items: "الأصناف الأكثر مبيعاً",
+        nav_inventory: "المخزون",
+        item_name: "اسم المكون",
+        current_stock: "المخزون الحالي",
+        unit: "الوحدة",
+        status: "الحالة",
+        status_ok: "متاح",
+        status_warning: "منخفض",
+        status_danger: "نفد"
     }
 };
 
@@ -125,6 +133,14 @@ translations.en.avg_order_value = "Avg. Order Value";
 translations.en.sales_by_type = "Sales by Order Type";
 translations.en.sales_by_payment = "Sales by Payment Method";
 translations.en.top_selling_items = "Top Selling Items";
+translations.en.nav_inventory = "Inventory";
+translations.en.item_name = "Item Name";
+translations.en.current_stock = "Current Stock";
+translations.en.unit = "Unit";
+translations.en.status = "Status";
+translations.en.status_ok = "In Stock";
+translations.en.status_warning = "Low Stock";
+translations.en.status_danger = "Out of Stock";
 
 let currentLang = 'en';
 

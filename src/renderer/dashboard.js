@@ -11,6 +11,8 @@ window.switchTab = function(tabId) {
     document.getElementById('main-pos').style.display = 'none';
     document.getElementById('right-panel').style.display = 'none'; // Right panel belongs to POS
     document.getElementById('main-dashboard').style.display = 'none';
+    document.getElementById('main-inventory').style.display = 'none';
+    document.getElementById('under-construction-panel').style.display = 'none';
 
     // Show selected container
     if (tabId === 'pos') {
@@ -19,10 +21,12 @@ window.switchTab = function(tabId) {
     } else if (tabId === 'dashboard') {
         document.getElementById('main-dashboard').style.display = 'flex';
         loadDashboardData();
+    } else if (tabId === 'inventory') {
+        document.getElementById('main-inventory').style.display = 'flex';
+        if(window.loadInventoryData) window.loadInventoryData();
     } else {
         // Placeholder for other tabs (Customers, Settings)
-        document.getElementById('main-dashboard').style.display = 'flex'; // Just show dashboard area empty for now
-        document.getElementById('main-dashboard').innerHTML = `<h1 style="margin-top:50px; text-align:center; width:100%; color: var(--gray-text);">Module Under Construction</h1>`;
+        document.getElementById('under-construction-panel').style.display = 'flex';
     }
 };
 

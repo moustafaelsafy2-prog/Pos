@@ -27,6 +27,10 @@ function setupSchema() {
         db.run(`CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, item_id INTEGER, quantity INTEGER NOT NULL, subtotal REAL NOT NULL, notes TEXT, FOREIGN KEY (order_id) REFERENCES orders (id), FOREIGN KEY (item_id) REFERENCES items (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS license (id INTEGER PRIMARY KEY AUTOINCREMENT, serial_key TEXT, activated_at DATETIME, expires_at DATETIME, machine_id TEXT)`);
 
+        // Inventory and Recipes
+        db.run(`CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, unit TEXT NOT NULL, current_stock REAL DEFAULT 0, low_stock_threshold REAL DEFAULT 10)`);
+        db.run(`CREATE TABLE IF NOT EXISTS recipes (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, inventory_id INTEGER, quantity_required REAL NOT NULL, FOREIGN KEY (item_id) REFERENCES items (id), FOREIGN KEY (inventory_id) REFERENCES inventory (id))`);
+
         // Seed initial data if empty
         db.get('SELECT COUNT(*) AS count FROM categories', [], (err, row) => {
             if (!err && row.count === 0) {
@@ -37,6 +41,27 @@ function setupSchema() {
                     (2, 'Coca Cola', 2.99, 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500&q=80'),
                     (2, 'Fresh Water', 1.99, 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=500&q=80'),
                     (3, 'Vanilla Ice Cream', 4.99, 'https://images.unsplash.com/photo-1570197781417-0a5237575199?w=500&q=80')`);
+
+                // Seed Inventory
+                db.run(`INSERT INTO inventory (name, unit, current_stock, low_stock_threshold) VALUES
+                    ('Ground Beef', 'kg', 50.0, 10.0),
+                    ('Burger Buns', 'pcs', 200, 50),
+                    ('Cheese Slices', 'pcs', 300, 50),
+                    ('Pizza Dough', 'pcs', 100, 20),
+                    ('Pepperoni', 'kg', 20.0, 5.0)`);
+
+                // Seed Recipes (Map inventory to items)
+                // Classic Burger (id: 1) = 0.15kg Beef + 1 Bun + 1 Cheese
+                db.run(`INSERT INTO recipes (item_id, inventory_id, quantity_required) VALUES
+                    (1, 1, 0.15),
+                    (1, 2, 1.0),
+                    (1, 3, 1.0)`);
+
+                // Pepperoni Pizza (id: 2) = 1 Dough + 0.1kg Pepperoni + 2 Cheese (simulated)
+                db.run(`INSERT INTO recipes (item_id, inventory_id, quantity_required) VALUES
+                    (2, 4, 1.0),
+                    (2, 5, 0.1),
+                    (2, 3, 2.0)`);
             }
         });
     });
@@ -54,6 +79,15 @@ function getCategories() {
 function getItems() {
     return new Promise((resolve, reject) => {
         db.all("SELECT * FROM items", [], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+
+function getInventory() {
+    return new Promise((resolve, reject) => {
+        db.all("SELECT * FROM inventory", [], (err, rows) => {
             if (err) reject(err);
             else resolve(rows);
         });
@@ -121,11 +155,39 @@ function submitOrder(cart, orderType, customerId, paymentMethod, discount) {
             const orderId = this.lastID;
 
             const stmt = db.prepare(`INSERT INTO order_items (order_id, item_id, quantity, subtotal, notes) VALUES (?, ?, ?, ?, ?)`);
+
+            // 1. Insert all order items
             cart.forEach(item => {
                 stmt.run(orderId, item.id, item.qty, item.price * item.qty, item.notes || null);
             });
             stmt.finalize();
-            resolve({ orderId, total, subtotal, taxAmount, discount });
+
+            // 2. Auto-deduct inventory based on recipes using Promises to handle async flow
+            const deductionPromises = cart.map(item => {
+                return new Promise((res, rej) => {
+                    db.all(`SELECT inventory_id, quantity_required FROM recipes WHERE item_id = ?`, [item.id], (err, ingredients) => {
+                        if (err) return rej(err);
+                        if (!ingredients || ingredients.length === 0) return res(); // No recipe found
+
+                        // Deduct all ingredients for this item
+                        const updatePromises = ingredients.map(ing => {
+                            return new Promise((innerRes, innerRej) => {
+                                const totalDeduction = ing.quantity_required * item.qty;
+                                db.run(`UPDATE inventory SET current_stock = current_stock - ? WHERE id = ?`, [totalDeduction, ing.inventory_id], (err) => {
+                                    if (err) innerRej(err); else innerRes();
+                                });
+                            });
+                        });
+
+                        Promise.all(updatePromises).then(res).catch(rej);
+                    });
+                });
+            });
+
+            // Wait for all inventory deductions to complete
+            Promise.all(deductionPromises)
+                .then(() => resolve({ orderId, total, subtotal, taxAmount, discount }))
+                .catch(err => reject(err));
         });
     });
 }
@@ -199,5 +261,6 @@ module.exports = {
     activateLicense,
     getCustomerByPhone,
     saveCustomer,
-    getDashboardStats
+    getDashboardStats,
+    getInventory
 };
