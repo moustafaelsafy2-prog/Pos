@@ -10,14 +10,14 @@ async function checkLicense() {
             licenseStatusSpan.textContent = window.t('licensed');
             licenseStatusSpan.style.color = "#4CAF50";
             modal.style.display = "none";
-            mainPos.style.display = "flex";
+            document.getElementById('app-container').style.display = "flex";
             if(window.initPOS) window.initPOS();
         } else {
             licenseStatusSpan.setAttribute('data-i18n', 'unlicensed');
             licenseStatusSpan.textContent = window.t('unlicensed');
             licenseStatusSpan.style.color = "#F44336";
             modal.style.display = "flex";
-            mainPos.style.display = "none";
+            document.getElementById('app-container').style.display = "none";
         }
     } catch (e) {
         console.error("License check error:", e);

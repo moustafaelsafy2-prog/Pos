@@ -7,17 +7,6 @@
     <link rel="stylesheet" href="pos.css">
   </head>
   <body>
-    <div id="header">
-      <div style="display: flex; justify-content: space-between; align-items: center;">
-        <h1 data-i18n="app_title">Restaurant POS</h1>
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <button class="lang-btn" onclick="window.setLanguage('en')">EN</button>
-          <button class="lang-btn" onclick="window.setLanguage('ar')">AR</button>
-          <span id="license-status" style="font-size: 14px; font-weight: 600; padding: 4px 12px; border-radius: 20px; background: #eee;" data-i18n="checking_license">Checking License...</span>
-        </div>
-      </div>
-    </div>
-
     <div id="license-modal" class="modal" style="display:none;">
       <div class="modal-content">
         <h2 data-i18n="license_activation">License Activation</h2>
@@ -28,15 +17,57 @@
       </div>
     </div>
 
-    <div id="main-pos" style="display: none;">
-      <div id="left-panel">
-        <div id="categories-container">
-          <!-- Categories will be loaded here -->
+    <div id="app-container" style="display: none;">
+
+      <!-- Side Navigation -->
+      <nav id="sidebar">
+        <div class="brand">
+          <div class="brand-icon">🍽️</div>
+          <span data-i18n="app_title">POS</span>
         </div>
-        <div id="items-container">
-          <!-- Items will be loaded here -->
+        <ul class="nav-links">
+          <li class="active">
+            <span class="nav-icon">📦</span>
+            <span data-i18n="nav_pos" class="nav-text">POS</span>
+          </li>
+          <li>
+            <span class="nav-icon">📊</span>
+            <span data-i18n="nav_dashboard" class="nav-text">Dashboard</span>
+          </li>
+          <li>
+            <span class="nav-icon">👥</span>
+            <span data-i18n="nav_customers" class="nav-text">Customers</span>
+          </li>
+          <li>
+            <span class="nav-icon">⚙️</span>
+            <span data-i18n="nav_settings" class="nav-text">Settings</span>
+          </li>
+        </ul>
+        <div class="sidebar-bottom">
+           <span id="license-status" class="status-badge" data-i18n="checking_license">Checking...</span>
         </div>
-      </div>
+      </nav>
+
+      <!-- Main POS Content -->
+      <div id="main-pos">
+        <div id="left-panel">
+          <div id="top-bar">
+            <h1 data-i18n="app_title">Restaurant POS</h1>
+            <div class="top-controls">
+              <button class="lang-btn" onclick="window.setLanguage('en')">EN</button>
+              <button class="lang-btn" onclick="window.setLanguage('ar')">AR</button>
+            </div>
+          </div>
+
+          <div id="categories-container">
+            <!-- Categories will be loaded here -->
+          </div>
+          <div class="items-wrapper">
+            <div id="items-container">
+              <!-- Items will be loaded here -->
+            </div>
+          </div>
+        </div>
       <div id="right-panel">
         <div id="cart-header">
           <h2 data-i18n="current_order">Current Order</h2>

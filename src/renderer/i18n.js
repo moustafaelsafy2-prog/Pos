@@ -65,9 +65,18 @@ const translations = {
         fill_all_cust: "الرجاء تعبئة جميع بيانات العميل لطلب التوصيل.",
         save_cust_fail: "فشل في حفظ بيانات العميل.",
         checkout_fail: "فشل في إتمام الطلب. راجع السجل.",
-        order_success: "تم إكمال الطلب #{id} ({type}) بنجاح! الإجمالي: ${total}"
+        order_success: "تم إكمال الطلب #{id} ({type}) بنجاح! الإجمالي: ${total}",
+        nav_pos: "الكاشير",
+        nav_dashboard: "التقارير",
+        nav_customers: "العملاء",
+        nav_settings: "الإعدادات"
     }
 };
+
+translations.en.nav_pos = "POS";
+translations.en.nav_dashboard = "Dashboard";
+translations.en.nav_customers = "Customers";
+translations.en.nav_settings = "Settings";
 
 let currentLang = 'en';
 
