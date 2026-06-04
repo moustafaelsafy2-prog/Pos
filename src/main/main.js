@@ -52,6 +52,10 @@ ipcMain.handle('db-save-customer', async (event, customer) => {
     return await dbManager.saveCustomer(customer);
 });
 
+ipcMain.handle('db-get-dashboard-stats', async () => {
+    return await dbManager.getDashboardStats();
+});
+
 ipcMain.handle('check-license', async () => {
     return await dbManager.checkLicense();
 });

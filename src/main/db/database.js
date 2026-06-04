@@ -60,6 +60,54 @@ function getItems() {
     });
 }
 
+function getDashboardStats() {
+    return new Promise((resolve, reject) => {
+        const stats = {};
+
+        // Use Promise.all to run all stats queries in parallel
+        Promise.all([
+            // 1. Total Revenue & Order Count
+            new Promise((res, rej) => {
+                db.get("SELECT COUNT(id) as totalOrders, SUM(total_amount) as totalRevenue FROM orders", [], (err, row) => {
+                    if (err) rej(err); else res(row);
+                });
+            }),
+            // 2. Sales by Order Type
+            new Promise((res, rej) => {
+                db.all("SELECT order_type, COUNT(id) as count FROM orders GROUP BY order_type", [], (err, rows) => {
+                    if (err) rej(err); else res(rows);
+                });
+            }),
+            // 3. Sales by Payment Method
+            new Promise((res, rej) => {
+                db.all("SELECT payment_method, SUM(total_amount) as total FROM orders GROUP BY payment_method", [], (err, rows) => {
+                    if (err) rej(err); else res(rows);
+                });
+            }),
+            // 4. Top Selling Items
+            new Promise((res, rej) => {
+                const query = `
+                    SELECT i.name, SUM(oi.quantity) as total_sold
+                    FROM order_items oi
+                    JOIN items i ON oi.item_id = i.id
+                    GROUP BY oi.item_id
+                    ORDER BY total_sold DESC
+                    LIMIT 5
+                `;
+                db.all(query, [], (err, rows) => {
+                    if (err) rej(err); else res(rows);
+                });
+            })
+        ]).then(results => {
+            stats.overview = results[0];
+            stats.byType = results[1];
+            stats.byPayment = results[2];
+            stats.topItems = results[3];
+            resolve(stats);
+        }).catch(err => reject(err));
+    });
+}
+
 function submitOrder(cart, orderType, customerId, paymentMethod, discount) {
     return new Promise((resolve, reject) => {
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
@@ -150,5 +198,6 @@ module.exports = {
     checkLicense,
     activateLicense,
     getCustomerByPhone,
-    saveCustomer
+    saveCustomer,
+    getDashboardStats
 };

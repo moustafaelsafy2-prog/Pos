@@ -513,6 +513,78 @@ body {
     color: var(--dark);
 }
 
+/* ------------------- DASHBOARD SPECIFICS ------------------- */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.kpi-card {
+    background: var(--white);
+    padding: 32px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-soft);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.kpi-title {
+    color: var(--gray-text);
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.kpi-value {
+    color: var(--dark);
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -1px;
+}
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 24px;
+}
+
+.chart-card {
+    background: var(--white);
+    padding: 32px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-soft);
+}
+
+.chart-card h3 {
+    margin: 0 0 24px 0;
+    color: var(--dark);
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.top-item-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--gray-bg);
+}
+
+.top-item-row:last-child {
+    border-bottom: none;
+}
+
+.top-item-name {
+    font-weight: 600;
+    color: var(--dark);
+}
+
+.top-item-qty {
+    font-weight: 700;
+    color: var(--primary);
+}
+
 /* ------------------- CART SUMMARY ------------------- */
 #cart-summary {
     padding: 24px 32px;

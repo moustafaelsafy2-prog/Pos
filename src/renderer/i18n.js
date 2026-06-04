@@ -86,7 +86,14 @@ const translations = {
         confirm_payment: "تأكيد الدفع",
         item_notes: "ملاحظات الصنف",
         enter_notes: "مثال: بدون بصل، زيادة جبن...",
-        save: "حفظ"
+        save: "حفظ",
+        refresh: "تحديث",
+        total_revenue: "إجمالي الإيرادات",
+        total_orders: "إجمالي الطلبات",
+        avg_order_value: "متوسط قيمة الطلب",
+        sales_by_type: "المبيعات حسب نوع الطلب",
+        sales_by_payment: "المبيعات حسب طريقة الدفع",
+        top_selling_items: "الأصناف الأكثر مبيعاً"
     }
 };
 
@@ -111,6 +118,13 @@ translations.en.confirm_payment = "Confirm Payment";
 translations.en.item_notes = "Item Notes";
 translations.en.enter_notes = "e.g. No onions, extra cheese...";
 translations.en.save = "Save";
+translations.en.refresh = "Refresh";
+translations.en.total_revenue = "Total Revenue";
+translations.en.total_orders = "Total Orders";
+translations.en.avg_order_value = "Avg. Order Value";
+translations.en.sales_by_type = "Sales by Order Type";
+translations.en.sales_by_payment = "Sales by Payment Method";
+translations.en.top_selling_items = "Top Selling Items";
 
 let currentLang = 'en';
 

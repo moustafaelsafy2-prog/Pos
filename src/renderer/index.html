@@ -26,19 +26,19 @@
           <span data-i18n="app_title">POS</span>
         </div>
         <ul class="nav-links">
-          <li class="active">
+          <li class="active" onclick="window.switchTab('pos')" id="nav-pos">
             <span class="nav-icon">📦</span>
             <span data-i18n="nav_pos" class="nav-text">POS</span>
           </li>
-          <li>
+          <li onclick="window.switchTab('dashboard')" id="nav-dashboard">
             <span class="nav-icon">📊</span>
             <span data-i18n="nav_dashboard" class="nav-text">Dashboard</span>
           </li>
-          <li>
+          <li onclick="window.switchTab('customers')" id="nav-customers">
             <span class="nav-icon">👥</span>
             <span data-i18n="nav_customers" class="nav-text">Customers</span>
           </li>
-          <li>
+          <li onclick="window.switchTab('settings')" id="nav-settings">
             <span class="nav-icon">⚙️</span>
             <span data-i18n="nav_settings" class="nav-text">Settings</span>
           </li>
@@ -69,6 +69,57 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Main Dashboard Content -->
+      <div id="main-dashboard" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: var(--gray-bg); padding: 40px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+          <h1 data-i18n="nav_dashboard" style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">Dashboard</h1>
+          <button id="refresh-dashboard-btn" class="secondary-btn" style="width: auto; padding: 10px 24px;" data-i18n="refresh">Refresh</button>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="kpi-title" data-i18n="total_revenue">Total Revenue</div>
+            <div class="kpi-value" id="kpi-revenue">$0.00</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-title" data-i18n="total_orders">Total Orders</div>
+            <div class="kpi-value" id="kpi-orders">0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-title" data-i18n="avg_order_value">Avg. Order Value</div>
+            <div class="kpi-value" id="kpi-avg">$0.00</div>
+          </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="charts-grid">
+          <div class="chart-card">
+            <h3 data-i18n="sales_by_type">Sales by Order Type</h3>
+            <div style="position: relative; height: 250px; width: 100%;">
+              <canvas id="typeChart"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h3 data-i18n="sales_by_payment">Sales by Payment Method</h3>
+            <div style="position: relative; height: 250px; width: 100%;">
+              <canvas id="paymentChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top Selling Items -->
+        <div class="chart-card" style="margin-top: 24px;">
+          <h3 data-i18n="top_selling_items">Top Selling Items</h3>
+          <div id="top-items-list" style="margin-top: 16px;">
+            <!-- Top items injected via JS -->
+          </div>
+        </div>
+
+      </div>
+
       <div id="right-panel">
         <div id="cart-header">
           <h2 data-i18n="current_order">Current Order</h2>
@@ -164,8 +215,13 @@
       </div>
     </div>
 
+    <!-- Chart.js from node_modules or CDN (We installed it, so we'll reference it or include a script to require it in renderer if nodeIntegration is false, but wait, nodeIntegration is false, so we need to either load it via script tag locally if we copy it, or build it. We will use a script tag to the local node_modules file since this is a local app and we don't have a bundler setup yet for the renderer.) -->
+    <!-- For security and simplicity in this architecture, we will load Chart.js locally. We installed it via npm, so it is in node_modules/chart.js/dist/chart.umd.js -->
+    <script src="../../node_modules/chart.js/dist/chart.umd.js"></script>
+
     <script src="i18n.js"></script>
     <script src="pos.js"></script>
+    <script src="dashboard.js"></script>
     <script src="license.js"></script>
   </body>
 </html>
