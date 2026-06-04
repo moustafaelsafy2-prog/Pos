@@ -12,6 +12,7 @@ window.switchTab = function(tabId) {
     document.getElementById('right-panel').style.display = 'none'; // Right panel belongs to POS
     document.getElementById('main-dashboard').style.display = 'none';
     document.getElementById('main-inventory').style.display = 'none';
+    document.getElementById('main-settings').style.display = 'none';
     document.getElementById('under-construction-panel').style.display = 'none';
 
     // Show selected container
@@ -24,8 +25,11 @@ window.switchTab = function(tabId) {
     } else if (tabId === 'inventory') {
         document.getElementById('main-inventory').style.display = 'flex';
         if(window.loadInventoryData) window.loadInventoryData();
+    } else if (tabId === 'settings') {
+        document.getElementById('main-settings').style.display = 'flex';
+        if(window.loadSettingsData) window.loadSettingsData();
     } else {
-        // Placeholder for other tabs (Customers, Settings)
+        // Placeholder for other tabs (Customers)
         document.getElementById('under-construction-panel').style.display = 'flex';
     }
 };

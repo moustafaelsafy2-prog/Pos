@@ -85,6 +85,33 @@ function getItems() {
     });
 }
 
+function addInventoryItem(name, unit, stock, threshold) {
+    return new Promise((resolve, reject) => {
+        db.run(`INSERT INTO inventory (name, unit, current_stock, low_stock_threshold) VALUES (?, ?, ?, ?)`,
+        [name, unit, stock, threshold], function(err) {
+            if (err) reject(err); else resolve(this.lastID);
+        });
+    });
+}
+
+function addMenuItem(categoryId, name, price, imageUrl) {
+    return new Promise((resolve, reject) => {
+        db.run(`INSERT INTO items (category_id, name, price, image_url) VALUES (?, ?, ?, ?)`,
+        [categoryId, name, price, imageUrl || null], function(err) {
+            if (err) reject(err); else resolve(this.lastID);
+        });
+    });
+}
+
+function addRecipe(itemId, inventoryId, qty) {
+    return new Promise((resolve, reject) => {
+        db.run(`INSERT INTO recipes (item_id, inventory_id, quantity_required) VALUES (?, ?, ?)`,
+        [itemId, inventoryId, qty], function(err) {
+            if (err) reject(err); else resolve(this.lastID);
+        });
+    });
+}
+
 function getInventory() {
     return new Promise((resolve, reject) => {
         db.all("SELECT * FROM inventory", [], (err, rows) => {
@@ -149,45 +176,58 @@ function submitOrder(cart, orderType, customerId, paymentMethod, discount) {
         const taxAmount = (subtotal - discount) * taxRate;
         const total = subtotal - discount + taxAmount;
 
-        db.run(`INSERT INTO orders (subtotal, tax_amount, discount, total_amount, order_type, customer_id, payment_method) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [subtotal, taxAmount, discount, total, orderType || 'Dine-in', customerId || null, paymentMethod || 'Cash'], function(err) {
+        db.run('BEGIN TRANSACTION', (err) => {
             if (err) return reject(err);
-            const orderId = this.lastID;
 
-            const stmt = db.prepare(`INSERT INTO order_items (order_id, item_id, quantity, subtotal, notes) VALUES (?, ?, ?, ?, ?)`);
+            db.run(`INSERT INTO orders (subtotal, tax_amount, discount, total_amount, order_type, customer_id, payment_method) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [subtotal, taxAmount, discount, total, orderType || 'Dine-in', customerId || null, paymentMethod || 'Cash'], function(err) {
+                if (err) {
+                    return db.run('ROLLBACK', () => reject(err));
+                }
+                const orderId = this.lastID;
 
-            // 1. Insert all order items
-            cart.forEach(item => {
-                stmt.run(orderId, item.id, item.qty, item.price * item.qty, item.notes || null);
-            });
-            stmt.finalize();
+                const stmt = db.prepare(`INSERT INTO order_items (order_id, item_id, quantity, subtotal, notes) VALUES (?, ?, ?, ?, ?)`);
 
-            // 2. Auto-deduct inventory based on recipes using Promises to handle async flow
-            const deductionPromises = cart.map(item => {
-                return new Promise((res, rej) => {
-                    db.all(`SELECT inventory_id, quantity_required FROM recipes WHERE item_id = ?`, [item.id], (err, ingredients) => {
-                        if (err) return rej(err);
-                        if (!ingredients || ingredients.length === 0) return res(); // No recipe found
+                // 1. Insert all order items
+                cart.forEach(item => {
+                    stmt.run(orderId, item.id, item.qty, item.price * item.qty, item.notes || null);
+                });
+                stmt.finalize();
 
-                        // Deduct all ingredients for this item
-                        const updatePromises = ingredients.map(ing => {
-                            return new Promise((innerRes, innerRej) => {
-                                const totalDeduction = ing.quantity_required * item.qty;
-                                db.run(`UPDATE inventory SET current_stock = current_stock - ? WHERE id = ?`, [totalDeduction, ing.inventory_id], (err) => {
-                                    if (err) innerRej(err); else innerRes();
+                // 2. Auto-deduct inventory based on recipes using Promises to handle async flow
+                const deductionPromises = cart.map(item => {
+                    return new Promise((res, rej) => {
+                        db.all(`SELECT inventory_id, quantity_required FROM recipes WHERE item_id = ?`, [item.id], (err, ingredients) => {
+                            if (err) return rej(err);
+                            if (!ingredients || ingredients.length === 0) return res(); // No recipe found
+
+                            // Deduct all ingredients for this item
+                            const updatePromises = ingredients.map(ing => {
+                                return new Promise((innerRes, innerRej) => {
+                                    const totalDeduction = ing.quantity_required * item.qty;
+                                    db.run(`UPDATE inventory SET current_stock = current_stock - ? WHERE id = ?`, [totalDeduction, ing.inventory_id], (err) => {
+                                        if (err) innerRej(err); else innerRes();
+                                    });
                                 });
                             });
-                        });
 
-                        Promise.all(updatePromises).then(res).catch(rej);
+                            Promise.all(updatePromises).then(res).catch(rej);
+                        });
                     });
                 });
-            });
 
-            // Wait for all inventory deductions to complete
-            Promise.all(deductionPromises)
-                .then(() => resolve({ orderId, total, subtotal, taxAmount, discount }))
-                .catch(err => reject(err));
+                // Wait for all inventory deductions to complete
+                Promise.all(deductionPromises)
+                    .then(() => {
+                        db.run('COMMIT', (err) => {
+                            if (err) return db.run('ROLLBACK', () => reject(err));
+                            resolve({ orderId, total, subtotal, taxAmount, discount });
+                        });
+                    })
+                    .catch(err => {
+                        db.run('ROLLBACK', () => reject(err));
+                    });
+            });
         });
     });
 }
@@ -262,5 +302,8 @@ module.exports = {
     getCustomerByPhone,
     saveCustomer,
     getDashboardStats,
-    getInventory
+    getInventory,
+    addInventoryItem,
+    addMenuItem,
+    addRecipe
 };

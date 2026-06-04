@@ -101,7 +101,24 @@ const translations = {
         status: "الحالة",
         status_ok: "متاح",
         status_warning: "منخفض",
-        status_danger: "نفد"
+        status_danger: "نفد",
+        add_inventory: "إضافة للمخزون",
+        add_menu_item: "إضافة صنف للقائمة",
+        link_recipe: "ربط وصفة (لإدارة المخزون)",
+        item_name: "اسم الصنف",
+        price: "السعر",
+        image_url: "رابط الصورة (اختياري)",
+        select_category: "اختر الفئة",
+        select_menu_item: "اختر صنف القائمة",
+        select_inv_item: "اختر مكون المخزون",
+        qty_required: "الكمية المطلوبة للوصفة",
+        link_recipe_btn: "ربط المكون",
+        low_threshold: "حد التنبيه",
+        fill_all_fields: "الرجاء تعبئة جميع الحقول",
+        save_success: "تم الحفظ بنجاح",
+        main_course: "الطبق الرئيسي",
+        drinks: "مشروبات",
+        desserts: "حلويات"
     }
 };
 
@@ -141,6 +158,23 @@ translations.en.status = "Status";
 translations.en.status_ok = "In Stock";
 translations.en.status_warning = "Low Stock";
 translations.en.status_danger = "Out of Stock";
+translations.en.add_inventory = "Add Inventory Item";
+translations.en.add_menu_item = "Add Menu Item";
+translations.en.link_recipe = "Link Recipe (Auto-Deduct)";
+translations.en.item_name = "Item Name";
+translations.en.price = "Price";
+translations.en.image_url = "Image URL (Optional)";
+translations.en.select_category = "Select Category";
+translations.en.select_menu_item = "Select Menu Item";
+translations.en.select_inv_item = "Select Inventory Item";
+translations.en.qty_required = "Quantity Required";
+translations.en.link_recipe_btn = "Link";
+translations.en.low_threshold = "Low Threshold";
+translations.en.fill_all_fields = "Please fill all fields";
+translations.en.save_success = "Saved Successfully";
+translations.en.main_course = "Main Course";
+translations.en.drinks = "Drinks";
+translations.en.desserts = "Desserts";
 
 let currentLang = 'en';
 

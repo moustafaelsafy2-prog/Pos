@@ -60,6 +60,18 @@ ipcMain.handle('db-get-inventory', async () => {
     return await dbManager.getInventory();
 });
 
+ipcMain.handle('db-add-inventory', async (event, name, unit, stock, threshold) => {
+    return await dbManager.addInventoryItem(name, unit, stock, threshold);
+});
+
+ipcMain.handle('db-add-menu-item', async (event, catId, name, price, img) => {
+    return await dbManager.addMenuItem(catId, name, price, img);
+});
+
+ipcMain.handle('db-add-recipe', async (event, itemId, invId, qty) => {
+    return await dbManager.addRecipe(itemId, invId, qty);
+});
+
 ipcMain.handle('check-license', async () => {
     return await dbManager.checkLicense();
 });

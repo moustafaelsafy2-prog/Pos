@@ -148,6 +148,58 @@
         </div>
       </div>
 
+      <!-- Main Settings Content -->
+      <div id="main-settings" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: var(--gray-bg); padding: 40px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+          <h1 data-i18n="nav_settings" style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">Settings</h1>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+          <!-- Inventory Management -->
+          <div class="chart-card">
+            <h3 data-i18n="add_inventory">Add Inventory Item</h3>
+            <input type="text" id="new-inv-name" class="custom-input" data-i18n-placeholder="item_name" placeholder="Item Name">
+            <div style="display: flex; gap: 10px;">
+              <input type="text" id="new-inv-unit" class="custom-input" data-i18n-placeholder="unit" placeholder="Unit (kg, pcs)" style="flex: 1;">
+              <input type="number" id="new-inv-stock" class="custom-input" data-i18n-placeholder="current_stock" placeholder="Initial Stock" style="flex: 1;">
+              <input type="number" id="new-inv-thresh" class="custom-input" data-i18n-placeholder="low_threshold" placeholder="Low Threshold" style="flex: 1;">
+            </div>
+            <button id="add-inv-btn" class="custom-btn" style="background: var(--secondary);" data-i18n="save">Save</button>
+          </div>
+
+          <!-- Menu Management -->
+          <div class="chart-card">
+            <h3 data-i18n="add_menu_item">Add Menu Item</h3>
+            <input type="text" id="new-menu-name" class="custom-input" data-i18n-placeholder="item_name" placeholder="Menu Item Name">
+            <div style="display: flex; gap: 10px;">
+              <select id="new-menu-category" class="custom-input" style="flex: 1;">
+                  <!-- Populated via JS -->
+              </select>
+              <input type="number" id="new-menu-price" class="custom-input" data-i18n-placeholder="price" placeholder="Price ($)" style="flex: 1;">
+            </div>
+            <input type="text" id="new-menu-image" class="custom-input" data-i18n-placeholder="image_url" placeholder="Image URL (Optional)">
+            <button id="add-menu-btn" class="custom-btn" style="background: var(--primary);" data-i18n="save">Save</button>
+          </div>
+
+          <!-- Recipes Management -->
+          <div class="chart-card" style="grid-column: span 2;">
+            <h3 data-i18n="link_recipe">Link Recipe (Auto-Deduct)</h3>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <select id="recipe-menu-item" class="custom-input" style="flex: 1;">
+                <option value="" disabled selected data-i18n="select_menu_item">Select Menu Item</option>
+              </select>
+              <span style="font-size: 24px; color: var(--gray-text);">+</span>
+              <select id="recipe-inv-item" class="custom-input" style="flex: 1;">
+                <option value="" disabled selected data-i18n="select_inv_item">Select Inventory Item</option>
+              </select>
+              <span style="font-size: 24px; color: var(--gray-text);">=</span>
+              <input type="number" id="recipe-qty" class="custom-input" style="flex: 1; margin-bottom: 0;" data-i18n-placeholder="qty_required" placeholder="Qty Required">
+              <button id="add-recipe-btn" class="custom-btn" style="flex: 1; margin-bottom: 0;" data-i18n="link_recipe_btn">Link</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Under Construction Panel -->
       <div id="under-construction-panel" style="display: none; flex: 1; flex-direction: column; justify-content: center; align-items: center; background: var(--gray-bg);">
           <h1 style="color: var(--gray-text); font-size: 24px;">🚧 Module Under Construction 🚧</h1>
@@ -256,6 +308,7 @@
     <script src="pos.js"></script>
     <script src="dashboard.js"></script>
     <script src="inventory.js"></script>
+    <script src="settings.js"></script>
     <script src="license.js"></script>
   </body>
 </html>
