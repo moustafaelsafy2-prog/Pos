@@ -31,7 +31,7 @@ body {
     flex: 2;
     display: flex;
     flex-direction: column;
-    border-right: 1px solid #ddd;
+    border-inline-end: 1px solid #ddd;
     background: white;
 }
 
@@ -45,7 +45,7 @@ body {
 
 .category-btn {
     padding: 12px 24px;
-    margin-right: 10px;
+    margin-inline-end: 10px;
     border: none;
     background: #e0e0e0;
     border-radius: 8px;

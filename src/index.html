@@ -2,20 +2,27 @@
 <html>
   <head>
     <meta charset="UTF-8">
-    <title>Restaurant POS System</title>
+    <title data-i18n="app_title">Restaurant POS System</title>
     <link rel="stylesheet" href="pos.css">
   </head>
   <body>
     <div id="header">
-      <h1>Restaurant POS <span id="license-status" style="font-size: 14px; float: right; margin-right: 20px;">Checking License...</span></h1>
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h1 data-i18n="app_title">Restaurant POS</h1>
+        <div>
+          <button onclick="window.setLanguage('en')" style="margin-right: 5px;">English</button>
+          <button onclick="window.setLanguage('ar')" style="margin-right: 20px;">العربية</button>
+          <span id="license-status" style="font-size: 14px;" data-i18n="checking_license">Checking License...</span>
+        </div>
+      </div>
     </div>
 
     <div id="license-modal" class="modal" style="display:none;">
       <div class="modal-content">
-        <h2>License Activation</h2>
-        <p>Please enter your serial key to activate the POS system.</p>
+        <h2 data-i18n="license_activation">License Activation</h2>
+        <p data-i18n="license_prompt">Please enter your serial key to activate the POS system.</p>
         <input type="text" id="serial-key-input" placeholder="XXXX-XXXX-XXXX-XXXX" />
-        <button id="activate-btn">Activate</button>
+        <button id="activate-btn" data-i18n="activate_btn">Activate</button>
         <p id="license-error" style="color: red; display: none;"></p>
       </div>
     </div>
@@ -31,36 +38,37 @@
       </div>
       <div id="right-panel">
         <div id="cart-header">
-          <h2>Current Order</h2>
+          <h2 data-i18n="current_order">Current Order</h2>
           <div style="margin-top: 10px;">
-            <label><input type="radio" name="orderType" value="Dine-in" checked> Dine-in</label>
-            <label><input type="radio" name="orderType" value="Takeaway"> Takeaway</label>
-            <label><input type="radio" name="orderType" value="Delivery"> Delivery</label>
+            <label><input type="radio" name="orderType" value="Dine-in" checked> <span data-i18n="dine_in">Dine-in</span></label>
+            <label><input type="radio" name="orderType" value="Takeaway"> <span data-i18n="takeaway">Takeaway</span></label>
+            <label><input type="radio" name="orderType" value="Delivery"> <span data-i18n="delivery">Delivery</span></label>
           </div>
         </div>
 
         <div id="customer-info-panel" style="display: none; padding: 10px; background: #e3f2fd; border-bottom: 1px solid #ccc;">
-          <h3 style="margin-top: 0;">Customer Details</h3>
-          <input type="text" id="cust-phone" placeholder="Phone Number" style="width: calc(100% - 20px); margin-bottom: 5px; padding: 5px;">
-          <button id="search-cust-btn" style="width: 100%; margin-bottom: 10px; padding: 5px;">Search Customer</button>
+          <h3 style="margin-top: 0;" data-i18n="customer_details">Customer Details</h3>
+          <input type="text" id="cust-phone" data-i18n-placeholder="phone_placeholder" placeholder="Phone Number" style="width: calc(100% - 20px); margin-bottom: 5px; padding: 5px; box-sizing: border-box;">
+          <button id="search-cust-btn" data-i18n="search_cust_btn" style="width: 100%; margin-bottom: 10px; padding: 5px;">Search Customer</button>
 
           <input type="hidden" id="cust-id">
-          <input type="text" id="cust-name" placeholder="Name" style="width: calc(100% - 20px); margin-bottom: 5px; padding: 5px;">
-          <input type="text" id="cust-address" placeholder="Address" style="width: calc(100% - 20px); margin-bottom: 5px; padding: 5px;">
+          <input type="text" id="cust-name" data-i18n-placeholder="name_placeholder" placeholder="Name" style="width: calc(100% - 20px); margin-bottom: 5px; padding: 5px; box-sizing: border-box;">
+          <input type="text" id="cust-address" data-i18n-placeholder="address_placeholder" placeholder="Address" style="width: calc(100% - 20px); margin-bottom: 5px; padding: 5px; box-sizing: border-box;">
         </div>
         <div id="cart-items">
           <!-- Cart items will be loaded here -->
         </div>
         <div id="cart-summary">
           <div class="summary-row">
-            <span>Total:</span>
+            <span data-i18n="total">Total:</span>
             <span id="cart-total">$0.00</span>
           </div>
-          <button id="checkout-btn">Checkout</button>
+          <button id="checkout-btn" data-i18n="checkout_btn">Checkout</button>
         </div>
       </div>
     </div>
 
+    <script src="i18n.js"></script>
     <script src="pos.js"></script>
     <script src="license.js"></script>
   </body>

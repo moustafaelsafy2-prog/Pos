@@ -125,7 +125,7 @@ document.querySelectorAll('input[name="orderType"]').forEach(radio => {
 // Handle Customer Search
 document.getElementById('search-cust-btn').addEventListener('click', async () => {
     const phone = document.getElementById('cust-phone').value.trim();
-    if (!phone) return alert("Please enter a phone number");
+    if (!phone) return alert(window.t('enter_phone'));
 
     try {
         const customer = await window.api.getCustomer(phone);
@@ -137,7 +137,7 @@ document.getElementById('search-cust-btn').addEventListener('click', async () =>
             document.getElementById('cust-id').value = "";
             document.getElementById('cust-name').value = "";
             document.getElementById('cust-address').value = "";
-            alert("Customer not found. Please fill in details to create a new one.");
+            alert(window.t('cust_not_found'));
         }
     } catch (e) {
         console.error("Error searching customer", e);
@@ -146,7 +146,7 @@ document.getElementById('search-cust-btn').addEventListener('click', async () =>
 
 document.getElementById('checkout-btn').addEventListener('click', async () => {
     if (cart.length === 0) {
-        alert("Cart is empty!");
+        alert(window.t('cart_empty'));
         return;
     }
 
@@ -160,7 +160,7 @@ document.getElementById('checkout-btn').addEventListener('click', async () => {
         const idVal = document.getElementById('cust-id').value;
 
         if (!phone || !name || !address) {
-            alert("Please fill all customer details for delivery.");
+            alert(window.t('fill_all_cust'));
             return;
         }
 
@@ -175,14 +175,16 @@ document.getElementById('checkout-btn').addEventListener('click', async () => {
             document.getElementById('cust-id').value = customerId; // store the ID back
         } catch (e) {
             console.error("Failed to save customer:", e);
-            alert("Failed to save customer data.");
+            alert(window.t('save_cust_fail'));
             return;
         }
     }
 
     try {
         const result = await window.api.submitOrder(cart, orderType, customerId);
-        alert(`Order #${result.orderId} (${orderType}) completed successfully! Total: $${result.total.toFixed(2)}`);
+        // Translate order type for message
+        const translatedType = orderType === 'Dine-in' ? window.t('dine_in') : (orderType === 'Takeaway' ? window.t('takeaway') : window.t('delivery'));
+        alert(window.t('order_success', { id: result.orderId, type: translatedType, total: result.total.toFixed(2) }));
 
         // Reset Cart
         cart = [];
@@ -198,7 +200,7 @@ document.getElementById('checkout-btn').addEventListener('click', async () => {
 
     } catch (e) {
         console.error("Checkout failed:", e);
-        alert("Failed to submit order. Check console.");
+        alert(window.t('checkout_fail'));
     }
 });
 

@@ -6,13 +6,15 @@ async function checkLicense() {
         const mainPos = document.getElementById('main-pos');
 
         if (result.valid) {
-            licenseStatusSpan.textContent = "Licensed";
+            licenseStatusSpan.setAttribute('data-i18n', 'licensed');
+            licenseStatusSpan.textContent = window.t('licensed');
             licenseStatusSpan.style.color = "#4CAF50";
             modal.style.display = "none";
             mainPos.style.display = "flex";
             if(window.initPOS) window.initPOS();
         } else {
-            licenseStatusSpan.textContent = "Unlicensed";
+            licenseStatusSpan.setAttribute('data-i18n', 'unlicensed');
+            licenseStatusSpan.textContent = window.t('unlicensed');
             licenseStatusSpan.style.color = "#F44336";
             modal.style.display = "flex";
             mainPos.style.display = "none";
@@ -29,18 +31,22 @@ document.getElementById('activate-btn').addEventListener('click', async () => {
     try {
         const res = await window.api.activateLicense(key);
         if (res.success) {
-            alert(res.message);
+            alert(window.t('activation_success'));
             errorMsg.style.display = "none";
             checkLicense();
         } else {
-            errorMsg.textContent = res.message;
+            errorMsg.textContent = window.t('invalid_key');
             errorMsg.style.display = "block";
         }
     } catch(e) {
-        errorMsg.textContent = "Database error. Please try again.";
+        errorMsg.textContent = window.t('db_error');
         errorMsg.style.display = "block";
     }
 });
 
 // Run check on load
-checkLicense();
+document.addEventListener('DOMContentLoaded', () => {
+    // Initialize default language
+    window.setLanguage('ar'); // Set to Arabic as requested by user's preference
+    checkLicense();
+});
