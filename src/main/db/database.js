@@ -31,7 +31,12 @@ function setupSchema() {
         db.get('SELECT COUNT(*) AS count FROM categories', [], (err, row) => {
             if (!err && row.count === 0) {
                 db.run(`INSERT INTO categories (name) VALUES ('Main Course'), ('Drinks'), ('Desserts')`);
-                db.run(`INSERT INTO items (category_id, name, price) VALUES (1, 'Burger', 5.99), (1, 'Pizza', 8.99), (2, 'Cola', 1.99), (2, 'Water', 0.99), (3, 'Ice Cream', 2.99)`);
+                db.run(`INSERT INTO items (category_id, name, price, image_url) VALUES
+                    (1, 'Classic Burger', 8.99, 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=500&q=80'),
+                    (1, 'Pepperoni Pizza', 12.99, 'https://images.unsplash.com/photo-1628840042765-356cda07504e?w=500&q=80'),
+                    (2, 'Coca Cola', 2.99, 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500&q=80'),
+                    (2, 'Fresh Water', 1.99, 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=500&q=80'),
+                    (3, 'Vanilla Ice Cream', 4.99, 'https://images.unsplash.com/photo-1570197781417-0a5237575199?w=500&q=80')`);
             }
         });
     });

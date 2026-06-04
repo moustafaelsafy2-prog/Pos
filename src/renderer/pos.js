@@ -46,12 +46,21 @@ function renderItems(categoryId) {
     filteredItems.forEach(item => {
         const card = document.createElement('div');
         card.className = 'item-card';
-        // Simple fallback icon logic based on category
-        const icon = item.category_id === 1 ? '🍔' : (item.category_id === 2 ? '🥤' : '🍰');
+
+        let imageHtml = '';
+        if (item.image_url) {
+            imageHtml = `<div class="item-image" style="background-image: url('${item.image_url}')"></div>`;
+        } else {
+            const icon = item.category_id === 1 ? '🍔' : (item.category_id === 2 ? '🥤' : '🍰');
+            imageHtml = `<div class="item-icon">${icon}</div>`;
+        }
+
         card.innerHTML = `
-            <div class="item-icon">${icon}</div>
-            <div class="item-name">${item.name}</div>
-            <div class="item-price">$${item.price.toFixed(2)}</div>
+            ${imageHtml}
+            <div class="item-details">
+                <div class="item-name">${item.name}</div>
+                <div class="item-price">$${item.price.toFixed(2)}</div>
+            </div>
         `;
         card.onclick = () => addToCart(item);
         container.appendChild(card);
