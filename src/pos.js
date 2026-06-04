@@ -110,17 +110,92 @@ function renderCart() {
     document.getElementById('cart-total').textContent = `$${total.toFixed(2)}`;
 }
 
+// Handle Order Type Change
+document.querySelectorAll('input[name="orderType"]').forEach(radio => {
+    radio.addEventListener('change', (e) => {
+        const customerPanel = document.getElementById('customer-info-panel');
+        if (e.target.value === 'Delivery') {
+            customerPanel.style.display = 'block';
+        } else {
+            customerPanel.style.display = 'none';
+        }
+    });
+});
+
+// Handle Customer Search
+document.getElementById('search-cust-btn').addEventListener('click', async () => {
+    const phone = document.getElementById('cust-phone').value.trim();
+    if (!phone) return alert("Please enter a phone number");
+
+    try {
+        const customer = await window.api.getCustomer(phone);
+        if (customer) {
+            document.getElementById('cust-id').value = customer.id;
+            document.getElementById('cust-name').value = customer.name;
+            document.getElementById('cust-address').value = customer.address;
+        } else {
+            document.getElementById('cust-id').value = "";
+            document.getElementById('cust-name').value = "";
+            document.getElementById('cust-address').value = "";
+            alert("Customer not found. Please fill in details to create a new one.");
+        }
+    } catch (e) {
+        console.error("Error searching customer", e);
+    }
+});
+
 document.getElementById('checkout-btn').addEventListener('click', async () => {
     if (cart.length === 0) {
         alert("Cart is empty!");
         return;
     }
 
+    const orderType = document.querySelector('input[name="orderType"]:checked').value;
+    let customerId = null;
+
+    if (orderType === 'Delivery') {
+        const phone = document.getElementById('cust-phone').value.trim();
+        const name = document.getElementById('cust-name').value.trim();
+        const address = document.getElementById('cust-address').value.trim();
+        const idVal = document.getElementById('cust-id').value;
+
+        if (!phone || !name || !address) {
+            alert("Please fill all customer details for delivery.");
+            return;
+        }
+
+        try {
+            // Save or update customer
+            customerId = await window.api.saveCustomer({
+                id: idVal ? parseInt(idVal) : null,
+                name,
+                phone,
+                address
+            });
+            document.getElementById('cust-id').value = customerId; // store the ID back
+        } catch (e) {
+            console.error("Failed to save customer:", e);
+            alert("Failed to save customer data.");
+            return;
+        }
+    }
+
     try {
-        const result = await window.api.submitOrder(cart);
-        alert(`Order #${result.orderId} completed successfully! Total: $${result.total.toFixed(2)}`);
+        const result = await window.api.submitOrder(cart, orderType, customerId);
+        alert(`Order #${result.orderId} (${orderType}) completed successfully! Total: $${result.total.toFixed(2)}`);
+
+        // Reset Cart
         cart = [];
         renderCart();
+
+        // Reset Form
+        document.getElementById('cust-phone').value = "";
+        document.getElementById('cust-name').value = "";
+        document.getElementById('cust-address').value = "";
+        document.getElementById('cust-id').value = "";
+        document.querySelector('input[value="Dine-in"]').checked = true;
+        document.getElementById('customer-info-panel').style.display = 'none';
+
     } catch (e) {
         console.error("Checkout failed:", e);
         alert("Failed to submit order. Check console.");

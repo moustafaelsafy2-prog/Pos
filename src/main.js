@@ -41,8 +41,16 @@ ipcMain.handle('db-get-items', async () => {
     return await dbManager.getItems();
 });
 
-ipcMain.handle('db-submit-order', async (event, cart) => {
-    return await dbManager.submitOrder(cart);
+ipcMain.handle('db-submit-order', async (event, cart, orderType, customerId) => {
+    return await dbManager.submitOrder(cart, orderType, customerId);
+});
+
+ipcMain.handle('db-get-customer', async (event, phone) => {
+    return await dbManager.getCustomerByPhone(phone);
+});
+
+ipcMain.handle('db-save-customer', async (event, customer) => {
+    return await dbManager.saveCustomer(customer);
 });
 
 ipcMain.handle('check-license', async () => {

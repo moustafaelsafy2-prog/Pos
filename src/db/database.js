@@ -23,7 +23,7 @@ function setupSchema() {
         db.run(`CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)`);
         db.run(`CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, category_id INTEGER, name TEXT NOT NULL, price REAL NOT NULL, image_url TEXT, FOREIGN KEY (category_id) REFERENCES categories (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT UNIQUE, address TEXT)`);
-        db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER, total_amount REAL NOT NULL, order_date DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'pending', FOREIGN KEY (customer_id) REFERENCES customers (id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER, order_type TEXT DEFAULT 'Dine-in', total_amount REAL NOT NULL, order_date DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'pending', FOREIGN KEY (customer_id) REFERENCES customers (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, item_id INTEGER, quantity INTEGER NOT NULL, subtotal REAL NOT NULL, FOREIGN KEY (order_id) REFERENCES orders (id), FOREIGN KEY (item_id) REFERENCES items (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS license (id INTEGER PRIMARY KEY AUTOINCREMENT, serial_key TEXT, activated_at DATETIME, expires_at DATETIME, machine_id TEXT)`);
 
@@ -55,10 +55,10 @@ function getItems() {
     });
 }
 
-function submitOrder(cart) {
+function submitOrder(cart, orderType, customerId) {
     return new Promise((resolve, reject) => {
         const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-        db.run(`INSERT INTO orders (total_amount) VALUES (?)`, [total], function(err) {
+        db.run(`INSERT INTO orders (total_amount, order_type, customer_id) VALUES (?, ?, ?)`, [total, orderType || 'Dine-in', customerId || null], function(err) {
             if (err) return reject(err);
             const orderId = this.lastID;
 
@@ -69,6 +69,33 @@ function submitOrder(cart) {
             stmt.finalize();
             resolve({ orderId, total });
         });
+    });
+}
+
+function getCustomerByPhone(phone) {
+    return new Promise((resolve, reject) => {
+        db.get("SELECT * FROM customers WHERE phone = ?", [phone], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+        });
+    });
+}
+
+function saveCustomer(customer) {
+    return new Promise((resolve, reject) => {
+        if (customer.id) {
+            db.run(`UPDATE customers SET name = ?, address = ? WHERE id = ?`,
+                [customer.name, customer.address, customer.id], function(err) {
+                if (err) reject(err);
+                else resolve(customer.id);
+            });
+        } else {
+            db.run(`INSERT INTO customers (name, phone, address) VALUES (?, ?, ?)`,
+                [customer.name, customer.phone, customer.address], function(err) {
+                if (err) reject(err);
+                else resolve(this.lastID);
+            });
+        }
     });
 }
 
@@ -111,5 +138,7 @@ module.exports = {
     getItems,
     submitOrder,
     checkLicense,
-    activateLicense
+    activateLicense,
+    getCustomerByPhone,
+    saveCustomer
 };

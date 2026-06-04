@@ -32,6 +32,21 @@
       <div id="right-panel">
         <div id="cart-header">
           <h2>Current Order</h2>
+          <div style="margin-top: 10px;">
+            <label><input type="radio" name="orderType" value="Dine-in" checked> Dine-in</label>
+            <label><input type="radio" name="orderType" value="Takeaway"> Takeaway</label>
+            <label><input type="radio" name="orderType" value="Delivery"> Delivery</label>
+          </div>
+        </div>
+
+        <div id="customer-info-panel" style="display: none; padding: 10px; background: #e3f2fd; border-bottom: 1px solid #ccc;">
+          <h3 style="margin-top: 0;">Customer Details</h3>
+          <input type="text" id="cust-phone" placeholder="Phone Number" style="width: calc(100% - 20px); margin-bottom: 5px; padding: 5px;">
+          <button id="search-cust-btn" style="width: 100%; margin-bottom: 10px; padding: 5px;">Search Customer</button>
+
+          <input type="hidden" id="cust-id">
+          <input type="text" id="cust-name" placeholder="Name" style="width: calc(100% - 20px); margin-bottom: 5px; padding: 5px;">
+          <input type="text" id="cust-address" placeholder="Address" style="width: calc(100% - 20px); margin-bottom: 5px; padding: 5px;">
         </div>
         <div id="cart-items">
           <!-- Cart items will be loaded here -->
