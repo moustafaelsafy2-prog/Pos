@@ -30,6 +30,10 @@
             <span class="nav-icon">🛒</span>
             <span data-i18n="nav_pos" class="nav-text">POS</span>
           </li>
+          <li onclick="window.switchTab('kds')" id="nav-kds">
+            <span class="nav-icon">🧑‍🍳</span>
+            <span data-i18n="nav_kds" class="nav-text">Kitchen</span>
+          </li>
           <li onclick="window.switchTab('dashboard')" id="nav-dashboard">
             <span class="nav-icon">📊</span>
             <span data-i18n="nav_dashboard" class="nav-text">Dashboard</span>
@@ -247,6 +251,18 @@
         </div>
       </div>
 
+      <!-- Main KDS Content -->
+      <div id="main-kds" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: var(--gray-bg); padding: 40px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+          <h1 data-i18n="nav_kds" style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">Kitchen Display</h1>
+          <button id="refresh-kds-btn" class="secondary-btn" style="width: auto; padding: 10px 24px;" data-i18n="refresh">Refresh</button>
+        </div>
+
+        <div id="kds-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px;">
+            <!-- Tickets injected via JS -->
+        </div>
+      </div>
+
       <!-- Main Customers Content -->
       <div id="main-customers" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: var(--gray-bg); padding: 40px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
@@ -411,10 +427,16 @@
     <script src="i18n.js"></script>
     <script src="pos.js"></script>
     <script src="dashboard.js"></script>
+    <!-- Print Receipt Container (Hidden on screen, shown on print) -->
+    <div id="receipt-container" style="display: none;">
+      <!-- Content populated by JS -->
+    </div>
+
     <script src="inventory.js"></script>
     <script src="menu.js"></script>
     <script src="settings.js"></script>
     <script src="customers.js"></script>
+    <script src="kds.js"></script>
     <script src="license.js"></script>
   </body>
 </html>

@@ -33,7 +33,10 @@ async function loadInventoryData() {
                         ${window.t(statusTextKey)}
                     </span>
                 </td>
-                <td>
+                <td style="display: flex; gap: 8px;">
+                    <button class="custom-btn" style="padding: 6px 12px; background: var(--secondary); margin: 0; width: auto;" onclick="window.editInventory(${item.id}, '${item.name.replace(/'/g, "\\'")}', '${item.unit}', ${item.current_stock}, ${item.low_stock_threshold})">
+                        ${window.t('edit') || 'Edit'}
+                    </button>
                     <button class="custom-btn" style="padding: 6px 12px; background: var(--primary); margin: 0; width: auto;" onclick="window.deleteInventory(${item.id})">
                         ${window.t('delete') || 'Delete'}
                     </button>
@@ -48,7 +51,9 @@ async function loadInventoryData() {
 
 document.getElementById('refresh-inventory-btn').addEventListener('click', loadInventoryData);
 
-// Add Inventory Item Form inside Inventory Tab
+let editingInventoryId = null;
+
+// Add/Edit Inventory Item Form inside Inventory Tab
 document.getElementById('add-inv-btn').addEventListener('click', async () => {
     const name = document.getElementById('new-inv-name').value.trim();
     const unit = document.getElementById('new-inv-unit').value.trim();
@@ -60,7 +65,13 @@ document.getElementById('add-inv-btn').addEventListener('click', async () => {
     }
 
     try {
-        await window.api.addInventoryItem(name, unit, stock, thresh);
+        if (editingInventoryId) {
+            await window.api.updateInventoryItem(editingInventoryId, name, unit, stock, thresh);
+            editingInventoryId = null;
+            document.getElementById('add-inv-btn').textContent = window.t('save') || 'Save';
+        } else {
+            await window.api.addInventoryItem(name, unit, stock, thresh);
+        }
         alert(window.t('save_success') || "Saved successfully!");
         document.getElementById('new-inv-name').value = '';
         document.getElementById('new-inv-unit').value = '';
@@ -72,6 +83,17 @@ document.getElementById('add-inv-btn').addEventListener('click', async () => {
         alert("Failed to save inventory item.");
     }
 });
+
+window.editInventory = function(id, name, unit, stock, thresh) {
+    editingInventoryId = id;
+    document.getElementById('new-inv-name').value = name;
+    document.getElementById('new-inv-unit').value = unit;
+    document.getElementById('new-inv-stock').value = stock;
+    document.getElementById('new-inv-thresh').value = thresh;
+
+    document.getElementById('add-inv-btn').textContent = window.t('edit') || 'Edit';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
 window.deleteInventory = async function(id) {
     if (!confirm("Are you sure you want to delete this inventory item? Associated recipes will also be deleted.")) return;

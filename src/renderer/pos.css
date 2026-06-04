@@ -563,6 +563,131 @@ body {
     font-weight: 600;
 }
 
+/* ------------------- RECEIPT PRINTING ------------------- */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    #receipt-container, #receipt-container * {
+        visibility: visible;
+    }
+    #receipt-container {
+        display: block !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 80mm; /* Standard thermal receipt width */
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 12px;
+        color: #000;
+        margin: 0;
+        padding: 5mm;
+    }
+
+    .receipt-header {
+        text-align: center;
+        margin-bottom: 10px;
+    }
+
+    .receipt-header h2 {
+        margin: 0 0 5px 0;
+        font-size: 16px;
+    }
+
+    .receipt-line-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 4px;
+    }
+
+    .receipt-divider {
+        border-top: 1px dashed #000;
+        margin: 8px 0;
+    }
+}
+
+/* ------------------- KDS SPECIFICS ------------------- */
+.kds-ticket {
+    background: var(--white);
+    border-top: 6px solid var(--primary);
+    border-radius: var(--radius-md);
+    padding: 24px;
+    box-shadow: var(--shadow-soft);
+    display: flex;
+    flex-direction: column;
+}
+
+.kds-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    border-bottom: 2px dashed var(--gray-border);
+    padding-bottom: 16px;
+}
+
+.kds-id {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--dark);
+}
+
+.kds-type {
+    background: var(--gray-bg);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gray-text);
+}
+
+.kds-items {
+    flex: 1;
+    margin-bottom: 24px;
+}
+
+.kds-item {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--dark);
+    margin-bottom: 8px;
+}
+
+.kds-note {
+    font-size: 14px;
+    color: var(--primary);
+    margin-bottom: 16px;
+    background: var(--primary-light);
+    padding: 8px;
+    border-radius: 8px;
+}
+
+.kds-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.kds-time {
+    color: var(--gray-text);
+    font-size: 14px;
+}
+
+.kds-ready-btn {
+    background: var(--secondary);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.kds-ready-btn:hover {
+    background: var(--secondary-hover);
+    transform: translateY(-2px);
+}
+
 /* ------------------- DASHBOARD SPECIFICS ------------------- */
 .kpi-grid {
     display: grid;

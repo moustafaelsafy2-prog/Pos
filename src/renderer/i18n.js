@@ -128,9 +128,12 @@ const translations = {
         invalid_pin: "رمز غير صحيح",
         actions: "إجراءات",
         delete: "حذف",
+        edit: "تعديل",
         order_history: "أرشيف الطلبات",
         date: "التاريخ",
-        close: "إغلاق"
+        close: "إغلاق",
+        nav_kds: "شاشة المطبخ",
+        ready: "جاهز"
     }
 };
 
@@ -196,9 +199,12 @@ translations.en.admin_pin = "Admin PIN";
 translations.en.invalid_pin = "Invalid PIN";
 translations.en.actions = "Actions";
 translations.en.delete = "Delete";
+translations.en.edit = "Edit";
 translations.en.order_history = "Order History";
 translations.en.date = "Date";
 translations.en.close = "Close";
+translations.en.nav_kds = "Kitchen";
+translations.en.ready = "Ready";
 
 let currentLang = 'en';
 

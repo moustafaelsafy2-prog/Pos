@@ -45,7 +45,10 @@ async function loadMenuManagementData() {
                 tr.innerHTML = `
                     <td>${item.name}</td>
                     <td style="font-weight: 700; color: var(--primary);">$${item.price.toFixed(2)}</td>
-                    <td>
+                    <td style="display: flex; gap: 8px;">
+                        <button class="custom-btn" style="padding: 6px 12px; background: var(--secondary); margin: 0; width: auto;" onclick="window.editMenuItem(${item.id}, ${item.category_id}, '${item.name.replace(/'/g, "\\'")}', ${item.price}, '${(item.image_url || '').replace(/'/g, "\\'")}')">
+                            ${window.t('edit') || 'Edit'}
+                        </button>
                         <button class="custom-btn" style="padding: 6px 12px; background: var(--primary); margin: 0; width: auto;" onclick="window.deleteMenuItem(${item.id})">
                             ${window.t('delete') || 'Delete'}
                         </button>
@@ -60,7 +63,9 @@ async function loadMenuManagementData() {
     }
 }
 
-// Add Menu Item
+let editingMenuId = null;
+
+// Add/Edit Menu Item
 document.getElementById('add-menu-btn').addEventListener('click', async () => {
     const name = document.getElementById('new-menu-name').value.trim();
     const catId = parseInt(document.getElementById('new-menu-category').value);
@@ -72,7 +77,13 @@ document.getElementById('add-menu-btn').addEventListener('click', async () => {
     }
 
     try {
-        await window.api.addMenuItem(catId, name, price, img);
+        if (editingMenuId) {
+            await window.api.updateMenuItem(editingMenuId, catId, name, price, img);
+            editingMenuId = null;
+            document.getElementById('add-menu-btn').textContent = window.t('save') || 'Save';
+        } else {
+            await window.api.addMenuItem(catId, name, price, img);
+        }
         alert(window.t('save_success') || "Saved successfully!");
         document.getElementById('new-menu-name').value = '';
         document.getElementById('new-menu-category').value = '';
@@ -85,6 +96,17 @@ document.getElementById('add-menu-btn').addEventListener('click', async () => {
         alert("Failed to save menu item.");
     }
 });
+
+window.editMenuItem = function(id, catId, name, price, imgUrl) {
+    editingMenuId = id;
+    document.getElementById('new-menu-name').value = name;
+    document.getElementById('new-menu-category').value = catId;
+    document.getElementById('new-menu-price').value = price;
+    document.getElementById('new-menu-image').value = imgUrl;
+
+    document.getElementById('add-menu-btn').textContent = window.t('edit') || 'Edit';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
 // Link Recipe
 document.getElementById('add-recipe-btn').addEventListener('click', async () => {

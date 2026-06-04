@@ -30,12 +30,16 @@ async function executeTabSwitch(tabId) {
     document.getElementById('main-inventory').style.display = 'none';
     document.getElementById('main-settings').style.display = 'none';
     document.getElementById('main-customers').style.display = 'none';
+    document.getElementById('main-kds').style.display = 'none';
     document.getElementById('under-construction-panel').style.display = 'none';
 
     // Show selected container
     if (tabId === 'pos') {
         document.getElementById('main-pos').style.display = 'flex';
         document.getElementById('right-panel').style.display = 'flex';
+    } else if (tabId === 'kds') {
+        document.getElementById('main-kds').style.display = 'flex';
+        if(window.loadKDSData) window.loadKDSData();
     } else if (tabId === 'dashboard') {
         document.getElementById('main-dashboard').style.display = 'flex';
         loadDashboardData();

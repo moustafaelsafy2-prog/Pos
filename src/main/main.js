@@ -56,6 +56,14 @@ ipcMain.handle('db-get-customer-orders', async (event, customerId) => {
     return await dbManager.getCustomerOrders(customerId);
 });
 
+ipcMain.handle('db-get-pending-orders', async () => {
+    return await dbManager.getPendingOrders();
+});
+
+ipcMain.handle('db-mark-order-ready', async (event, orderId) => {
+    return await dbManager.markOrderReady(orderId);
+});
+
 ipcMain.handle('db-save-customer', async (event, customer) => {
     return await dbManager.saveCustomer(customer);
 });
@@ -86,6 +94,14 @@ ipcMain.handle('db-delete-inventory', async (event, id) => {
 
 ipcMain.handle('db-delete-menu-item', async (event, id) => {
     return await dbManager.deleteMenuItem(id);
+});
+
+ipcMain.handle('db-update-inventory', async (event, id, name, unit, stock, threshold) => {
+    return await dbManager.updateInventoryItem(id, name, unit, stock, threshold);
+});
+
+ipcMain.handle('db-update-menu-item', async (event, id, catId, name, price, img) => {
+    return await dbManager.updateMenuItem(id, catId, name, price, img);
 });
 
 ipcMain.handle('db-get-settings', async () => {

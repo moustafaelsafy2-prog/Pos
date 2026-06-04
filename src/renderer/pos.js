@@ -359,6 +359,9 @@ document.getElementById('confirm-payment-btn').addEventListener('click', async (
     try {
         const result = await window.api.submitOrder(cart, orderType, customerId, currentPaymentMethod, currentDiscount);
 
+        // Print Receipt
+        printReceipt(result.orderId, cart, orderType, result.subtotal, currentDiscount, result.taxAmount, result.total, currentPaymentMethod);
+
         const translatedType = orderType === 'Dine-in' ? window.t('dine_in') : (orderType === 'Takeaway' ? window.t('takeaway') : window.t('delivery'));
         alert(window.t('order_success', { id: result.orderId, type: translatedType, total: result.total.toFixed(2) }));
 
@@ -381,6 +384,52 @@ document.getElementById('confirm-payment-btn').addEventListener('click', async (
         alert(window.t('checkout_fail'));
     }
 });
+
+async function printReceipt(orderId, orderCart, type, subtotal, discount, tax, total, paymentMethod) {
+    try {
+        const settings = await window.api.getSettings();
+        const storeName = settings ? settings.store_name : "My Restaurant";
+        const taxNumber = settings ? settings.tax_number : "";
+
+        let itemsHtml = '';
+        orderCart.forEach(item => {
+            itemsHtml += `
+                <div class="receipt-line-item">
+                    <span>${item.qty}x ${item.name}</span>
+                    <span>$${(item.price * item.qty).toFixed(2)}</span>
+                </div>
+            `;
+            if (item.notes) {
+                itemsHtml += `<div style="font-size: 10px; margin-left: 10px;">- ${item.notes}</div>`;
+            }
+        });
+
+        const receiptContainer = document.getElementById('receipt-container');
+        receiptContainer.innerHTML = `
+            <div class="receipt-header">
+                <h2>${storeName}</h2>
+                <div>Tax No: ${taxNumber}</div>
+                <div class="receipt-divider"></div>
+                <div>Order #${orderId} | ${type}</div>
+                <div>Date: ${new Date().toLocaleString()}</div>
+            </div>
+            <div class="receipt-divider"></div>
+            ${itemsHtml}
+            <div class="receipt-divider"></div>
+            <div class="receipt-line-item"><span>Subtotal:</span><span>$${subtotal.toFixed(2)}</span></div>
+            <div class="receipt-line-item"><span>Discount:</span><span>-$${discount.toFixed(2)}</span></div>
+            <div class="receipt-line-item"><span>VAT (15%):</span><span>$${tax.toFixed(2)}</span></div>
+            <div class="receipt-line-item" style="font-weight: bold; font-size: 14px;"><span>Total:</span><span>$${total.toFixed(2)}</span></div>
+            <div class="receipt-divider"></div>
+            <div style="text-align: center;">Paid by: ${paymentMethod}</div>
+            <div style="text-align: center; margin-top: 10px;">Thank You!</div>
+        `;
+
+        window.print();
+    } catch (e) {
+        console.error("Failed to print receipt", e);
+    }
+}
 
 // Initialization will be triggered after license check passes
 window.initPOS = initPOS;

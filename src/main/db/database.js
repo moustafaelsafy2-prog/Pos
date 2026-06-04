@@ -23,7 +23,7 @@ function setupSchema() {
         db.run(`CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)`);
         db.run(`CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, category_id INTEGER, name TEXT NOT NULL, price REAL NOT NULL, image_url TEXT, FOREIGN KEY (category_id) REFERENCES categories (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT UNIQUE, address TEXT)`);
-        db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER, order_type TEXT DEFAULT 'Dine-in', subtotal REAL DEFAULT 0, tax_amount REAL DEFAULT 0, discount REAL DEFAULT 0, total_amount REAL NOT NULL, payment_method TEXT DEFAULT 'Cash', order_date DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'completed', FOREIGN KEY (customer_id) REFERENCES customers (id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER, order_type TEXT DEFAULT 'Dine-in', subtotal REAL DEFAULT 0, tax_amount REAL DEFAULT 0, discount REAL DEFAULT 0, total_amount REAL NOT NULL, payment_method TEXT DEFAULT 'Cash', order_date DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'preparing', FOREIGN KEY (customer_id) REFERENCES customers (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, item_id INTEGER, quantity INTEGER NOT NULL, subtotal REAL NOT NULL, notes TEXT, FOREIGN KEY (order_id) REFERENCES orders (id), FOREIGN KEY (item_id) REFERENCES items (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS license (id INTEGER PRIMARY KEY AUTOINCREMENT, serial_key TEXT, activated_at DATETIME, expires_at DATETIME, machine_id TEXT)`);
 
@@ -73,6 +73,44 @@ function setupSchema() {
             if (!err && row.count === 0) {
                 db.run(`INSERT INTO settings (store_name, tax_number, admin_pin) VALUES ('My Restaurant', '1234567890', '0000')`);
             }
+        });
+    });
+}
+
+function getPendingOrders() {
+    return new Promise((resolve, reject) => {
+        db.all("SELECT * FROM orders WHERE status = 'preparing' ORDER BY order_date ASC", [], async (err, orders) => {
+            if (err) return reject(err);
+            if (!orders || orders.length === 0) return resolve([]);
+
+            try {
+                // Fetch items for each order
+                const ordersWithItems = await Promise.all(orders.map(order => {
+                    return new Promise((res, rej) => {
+                        const query = `
+                            SELECT oi.quantity, oi.notes, i.name
+                            FROM order_items oi
+                            JOIN items i ON oi.item_id = i.id
+                            WHERE oi.order_id = ?
+                        `;
+                        db.all(query, [order.id], (err, items) => {
+                            if (err) rej(err);
+                            else res({ ...order, items });
+                        });
+                    });
+                }));
+                resolve(ordersWithItems);
+            } catch (e) {
+                reject(e);
+            }
+        });
+    });
+}
+
+function markOrderReady(orderId) {
+    return new Promise((resolve, reject) => {
+        db.run("UPDATE orders SET status = 'completed' WHERE id = ?", [orderId], function(err) {
+            if (err) reject(err); else resolve(this.changes);
         });
     });
 }
@@ -188,6 +226,24 @@ function addRecipe(itemId, inventoryId, qty) {
         db.run(`INSERT INTO recipes (item_id, inventory_id, quantity_required) VALUES (?, ?, ?)`,
         [itemId, inventoryId, qty], function(err) {
             if (err) reject(err); else resolve(this.lastID);
+        });
+    });
+}
+
+function updateInventoryItem(id, name, unit, stock, threshold) {
+    return new Promise((resolve, reject) => {
+        db.run(`UPDATE inventory SET name = ?, unit = ?, current_stock = ?, low_stock_threshold = ? WHERE id = ?`,
+        [name, unit, stock, threshold, id], function(err) {
+            if (err) reject(err); else resolve(this.changes);
+        });
+    });
+}
+
+function updateMenuItem(id, categoryId, name, price, imageUrl) {
+    return new Promise((resolve, reject) => {
+        db.run(`UPDATE items SET category_id = ?, name = ?, price = ?, image_url = ? WHERE id = ?`,
+        [categoryId, name, price, imageUrl || null, id], function(err) {
+            if (err) reject(err); else resolve(this.changes);
         });
     });
 }
@@ -406,6 +462,8 @@ module.exports = {
     getCustomerByPhone,
     getAllCustomers,
     getCustomerOrders,
+    getPendingOrders,
+    markOrderReady,
     saveCustomer,
     getDashboardStats,
     getInventory,
@@ -414,6 +472,8 @@ module.exports = {
     addRecipe,
     deleteInventoryItem,
     deleteMenuItem,
+    updateInventoryItem,
+    updateMenuItem,
     getSettings,
     saveSettings,
     verifyPin
