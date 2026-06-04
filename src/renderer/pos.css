@@ -515,9 +515,18 @@ body {
 
 /* ------------------- CART SUMMARY ------------------- */
 #cart-summary {
-    padding: 32px;
+    padding: 24px 32px;
     background: var(--white);
     border-top: 1px solid var(--gray-border);
+}
+
+.summary-row-small {
+    display: flex;
+    justify-content: space-between;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: var(--gray-text);
 }
 
 .summary-row {
@@ -525,8 +534,25 @@ body {
     justify-content: space-between;
     font-size: 22px;
     font-weight: 700;
-    margin-bottom: 24px;
-    color: var(--gray-text);
+    margin-bottom: 20px;
+    color: var(--dark);
+}
+
+.secondary-btn {
+    flex: 1;
+    padding: 12px;
+    background: var(--gray-bg);
+    color: var(--dark);
+    border: 1px solid var(--gray-border);
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.secondary-btn:hover {
+    background: var(--gray-border);
 }
 
 #cart-total {
@@ -632,4 +658,43 @@ body {
     background: #000;
     transform: translateY(-2px);
     box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+/* ------------------- PAYMENT MODAL SPECIFICS ------------------- */
+.payment-btn {
+    padding: 16px 32px;
+    font-size: 18px;
+    border: 2px solid var(--gray-border);
+    background: var(--white);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: 0.3s;
+    font-weight: 600;
+    color: var(--gray-text);
+}
+
+.payment-btn.active {
+    border-color: var(--secondary);
+    color: var(--secondary);
+    background: rgba(0, 166, 153, 0.05);
+}
+
+.quick-cash-btn {
+    padding: 12px 20px;
+    background: var(--white);
+    border: 1px solid var(--gray-border);
+    border-radius: var(--radius-sm);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.quick-cash-btn:hover {
+    border-color: var(--secondary);
+    color: var(--secondary);
+}
+
+textarea.custom-input {
+    resize: none;
 }

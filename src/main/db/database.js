@@ -23,8 +23,8 @@ function setupSchema() {
         db.run(`CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)`);
         db.run(`CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, category_id INTEGER, name TEXT NOT NULL, price REAL NOT NULL, image_url TEXT, FOREIGN KEY (category_id) REFERENCES categories (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT UNIQUE, address TEXT)`);
-        db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER, order_type TEXT DEFAULT 'Dine-in', total_amount REAL NOT NULL, order_date DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'pending', FOREIGN KEY (customer_id) REFERENCES customers (id))`);
-        db.run(`CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, item_id INTEGER, quantity INTEGER NOT NULL, subtotal REAL NOT NULL, FOREIGN KEY (order_id) REFERENCES orders (id), FOREIGN KEY (item_id) REFERENCES items (id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER, order_type TEXT DEFAULT 'Dine-in', subtotal REAL DEFAULT 0, tax_amount REAL DEFAULT 0, discount REAL DEFAULT 0, total_amount REAL NOT NULL, payment_method TEXT DEFAULT 'Cash', order_date DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'completed', FOREIGN KEY (customer_id) REFERENCES customers (id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, item_id INTEGER, quantity INTEGER NOT NULL, subtotal REAL NOT NULL, notes TEXT, FOREIGN KEY (order_id) REFERENCES orders (id), FOREIGN KEY (item_id) REFERENCES items (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS license (id INTEGER PRIMARY KEY AUTOINCREMENT, serial_key TEXT, activated_at DATETIME, expires_at DATETIME, machine_id TEXT)`);
 
         // Seed initial data if empty
@@ -60,19 +60,24 @@ function getItems() {
     });
 }
 
-function submitOrder(cart, orderType, customerId) {
+function submitOrder(cart, orderType, customerId, paymentMethod, discount) {
     return new Promise((resolve, reject) => {
-        const total = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-        db.run(`INSERT INTO orders (total_amount, order_type, customer_id) VALUES (?, ?, ?)`, [total, orderType || 'Dine-in', customerId || null], function(err) {
+        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        const taxRate = 0.15; // 15% VAT
+        const taxAmount = (subtotal - discount) * taxRate;
+        const total = subtotal - discount + taxAmount;
+
+        db.run(`INSERT INTO orders (subtotal, tax_amount, discount, total_amount, order_type, customer_id, payment_method) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [subtotal, taxAmount, discount, total, orderType || 'Dine-in', customerId || null, paymentMethod || 'Cash'], function(err) {
             if (err) return reject(err);
             const orderId = this.lastID;
 
-            const stmt = db.prepare(`INSERT INTO order_items (order_id, item_id, quantity, subtotal) VALUES (?, ?, ?, ?)`);
+            const stmt = db.prepare(`INSERT INTO order_items (order_id, item_id, quantity, subtotal, notes) VALUES (?, ?, ?, ?, ?)`);
             cart.forEach(item => {
-                stmt.run(orderId, item.id, item.qty, item.price * item.qty);
+                stmt.run(orderId, item.id, item.qty, item.price * item.qty, item.notes || null);
             });
             stmt.finalize();
-            resolve({ orderId, total });
+            resolve({ orderId, total, subtotal, taxAmount, discount });
         });
     });
 }

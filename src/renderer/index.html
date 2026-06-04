@@ -54,6 +54,7 @@
           <div id="top-bar">
             <h1 data-i18n="app_title">Restaurant POS</h1>
             <div class="top-controls">
+              <input type="text" id="search-input" data-i18n-placeholder="search_items" placeholder="Search items..." class="custom-input" style="margin-bottom: 0; width: 250px;">
               <button class="lang-btn" onclick="window.setLanguage('en')">EN</button>
               <button class="lang-btn" onclick="window.setLanguage('ar')">AR</button>
             </div>
@@ -91,11 +92,74 @@
           <!-- Cart items will be loaded here -->
         </div>
         <div id="cart-summary">
+          <div class="summary-row-small">
+            <span data-i18n="subtotal">Subtotal</span>
+            <span id="cart-subtotal">$0.00</span>
+          </div>
+          <div class="summary-row-small">
+            <span data-i18n="discount">Discount</span>
+            <span>-<span id="cart-discount">$0.00</span></span>
+          </div>
+          <div class="summary-row-small">
+            <span data-i18n="tax">VAT (15%)</span>
+            <span id="cart-tax">$0.00</span>
+          </div>
+          <hr style="border: 0; border-top: 1px dashed #ccc; margin: 10px 0;">
           <div class="summary-row">
-            <span data-i18n="total">Total:</span>
+            <span data-i18n="total">Total</span>
             <span id="cart-total">$0.00</span>
           </div>
+
+          <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+            <button id="discount-btn" class="secondary-btn" data-i18n="add_discount">Discount</button>
+            <button id="hold-btn" class="secondary-btn" data-i18n="hold_order">Hold</button>
+            <button id="resume-btn" class="secondary-btn" data-i18n="resume_order">Resume</button>
+          </div>
+
           <button id="checkout-btn" data-i18n="checkout_btn">Checkout</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payment Modal -->
+    <div id="payment-modal" class="modal" style="display:none;">
+      <div class="modal-content" style="max-width: 500px;">
+        <h2 data-i18n="payment_title">Select Payment Method</h2>
+        <div class="payment-methods" style="display: flex; gap: 15px; justify-content: center; margin: 20px 0;">
+          <button class="payment-btn active" data-method="Cash">💵 <span data-i18n="cash">Cash</span></button>
+          <button class="payment-btn" data-method="Card">💳 <span data-i18n="card">Card</span></button>
+        </div>
+
+        <div id="cash-calculator" style="margin-bottom: 20px;">
+          <h3 data-i18n="quick_cash">Quick Cash</h3>
+          <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 15px;">
+            <button class="quick-cash-btn" data-val="10">10</button>
+            <button class="quick-cash-btn" data-val="50">50</button>
+            <button class="quick-cash-btn" data-val="100">100</button>
+            <button class="quick-cash-btn" data-val="500">500</button>
+          </div>
+          <div style="font-size: 18px;">
+            <span data-i18n="change_due">Change Due:</span>
+            <span id="change-amount" style="font-weight: bold; color: var(--secondary);">$0.00</span>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+          <button id="cancel-payment-btn" class="custom-btn" style="background: var(--gray-border); color: var(--dark);" data-i18n="cancel">Cancel</button>
+          <button id="confirm-payment-btn" class="custom-btn" style="background: var(--secondary); color: white;" data-i18n="confirm_payment">Confirm Payment</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes Modal -->
+    <div id="notes-modal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <h2 data-i18n="item_notes">Item Notes</h2>
+        <input type="hidden" id="note-item-id">
+        <textarea id="item-notes-input" class="custom-input" rows="3" data-i18n-placeholder="enter_notes" placeholder="e.g. No onions, extra cheese..."></textarea>
+        <div style="display: flex; gap: 10px;">
+          <button id="cancel-notes-btn" class="custom-btn" style="background: var(--gray-border); color: var(--dark);" data-i18n="cancel">Cancel</button>
+          <button id="save-notes-btn" class="custom-btn" style="background: var(--primary); color: white;" data-i18n="save">Save</button>
         </div>
       </div>
     </div>

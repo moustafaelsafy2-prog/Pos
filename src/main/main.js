@@ -40,8 +40,8 @@ ipcMain.handle('db-get-items', async () => {
     return await dbManager.getItems();
 });
 
-ipcMain.handle('db-submit-order', async (event, cart, orderType, customerId) => {
-    return await dbManager.submitOrder(cart, orderType, customerId);
+ipcMain.handle('db-submit-order', async (event, cart, orderType, customerId, paymentMethod, discount) => {
+    return await dbManager.submitOrder(cart, orderType, customerId, paymentMethod, discount);
 });
 
 ipcMain.handle('db-get-customer', async (event, phone) => {

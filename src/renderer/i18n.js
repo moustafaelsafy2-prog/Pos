@@ -69,7 +69,24 @@ const translations = {
         nav_pos: "الكاشير",
         nav_dashboard: "التقارير",
         nav_customers: "العملاء",
-        nav_settings: "الإعدادات"
+        nav_settings: "الإعدادات",
+        search_items: "بحث عن صنف...",
+        subtotal: "المجموع الفرعي",
+        discount: "الخصم",
+        tax: "الضريبة (15%)",
+        add_discount: "إضافة خصم",
+        hold_order: "تعليق الطلب",
+        resume_order: "استرجاع",
+        payment_title: "اختر طريقة الدفع",
+        cash: "كاش",
+        card: "شبكة",
+        quick_cash: "دفع سريع",
+        change_due: "المتبقي للعميل:",
+        cancel: "إلغاء",
+        confirm_payment: "تأكيد الدفع",
+        item_notes: "ملاحظات الصنف",
+        enter_notes: "مثال: بدون بصل، زيادة جبن...",
+        save: "حفظ"
     }
 };
 
@@ -77,6 +94,23 @@ translations.en.nav_pos = "POS";
 translations.en.nav_dashboard = "Dashboard";
 translations.en.nav_customers = "Customers";
 translations.en.nav_settings = "Settings";
+translations.en.search_items = "Search items...";
+translations.en.subtotal = "Subtotal";
+translations.en.discount = "Discount";
+translations.en.tax = "VAT (15%)";
+translations.en.add_discount = "Discount";
+translations.en.hold_order = "Hold";
+translations.en.resume_order = "Resume";
+translations.en.payment_title = "Select Payment Method";
+translations.en.cash = "Cash";
+translations.en.card = "Card";
+translations.en.quick_cash = "Quick Cash";
+translations.en.change_due = "Change Due:";
+translations.en.cancel = "Cancel";
+translations.en.confirm_payment = "Confirm Payment";
+translations.en.item_notes = "Item Notes";
+translations.en.enter_notes = "e.g. No onions, extra cheese...";
+translations.en.save = "Save";
 
 let currentLang = 'en';
 
