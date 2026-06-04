@@ -34,6 +34,27 @@ async function loadMenuManagementData() {
             invSelect.appendChild(opt);
         });
 
+        // Render existing menu items
+        const tbody = document.getElementById('menu-tbody');
+        tbody.innerHTML = '';
+        if (!items || items.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--gray-text);">No menu items found.</td></tr>`;
+        } else {
+            items.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${item.name}</td>
+                    <td style="font-weight: 700; color: var(--primary);">$${item.price.toFixed(2)}</td>
+                    <td>
+                        <button class="custom-btn" style="padding: 6px 12px; background: var(--primary); margin: 0; width: auto;" onclick="window.deleteMenuItem(${item.id})">
+                            ${window.t('delete') || 'Delete'}
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
     } catch (e) {
         console.error("Failed to load menu management data:", e);
     }
@@ -86,5 +107,17 @@ document.getElementById('add-recipe-btn').addEventListener('click', async () => 
         alert("Failed to link recipe.");
     }
 });
+
+window.deleteMenuItem = async function(id) {
+    if (!confirm("Are you sure you want to delete this menu item? Associated recipes will also be deleted.")) return;
+    try {
+        await window.api.deleteMenuItem(id);
+        loadMenuManagementData();
+        if (window.initPOS) window.initPOS(); // Refresh POS cache
+    } catch (e) {
+        console.error(e);
+        alert("Failed to delete menu item.");
+    }
+}
 
 window.loadMenuManagementData = loadMenuManagementData;

@@ -48,6 +48,14 @@ ipcMain.handle('db-get-customer', async (event, phone) => {
     return await dbManager.getCustomerByPhone(phone);
 });
 
+ipcMain.handle('db-get-all-customers', async () => {
+    return await dbManager.getAllCustomers();
+});
+
+ipcMain.handle('db-get-customer-orders', async (event, customerId) => {
+    return await dbManager.getCustomerOrders(customerId);
+});
+
 ipcMain.handle('db-save-customer', async (event, customer) => {
     return await dbManager.saveCustomer(customer);
 });
@@ -72,12 +80,24 @@ ipcMain.handle('db-add-recipe', async (event, itemId, invId, qty) => {
     return await dbManager.addRecipe(itemId, invId, qty);
 });
 
+ipcMain.handle('db-delete-inventory', async (event, id) => {
+    return await dbManager.deleteInventoryItem(id);
+});
+
+ipcMain.handle('db-delete-menu-item', async (event, id) => {
+    return await dbManager.deleteMenuItem(id);
+});
+
 ipcMain.handle('db-get-settings', async () => {
     return await dbManager.getSettings();
 });
 
-ipcMain.handle('db-save-settings', async (event, storeName, taxNumber) => {
-    return await dbManager.saveSettings(storeName, taxNumber);
+ipcMain.handle('db-save-settings', async (event, storeName, taxNumber, adminPin) => {
+    return await dbManager.saveSettings(storeName, taxNumber, adminPin);
+});
+
+ipcMain.handle('db-verify-pin', async (event, pin) => {
+    return await dbManager.verifyPin(pin);
 });
 
 ipcMain.handle('check-license', async () => {

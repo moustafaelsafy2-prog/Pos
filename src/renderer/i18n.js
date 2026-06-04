@@ -123,7 +123,14 @@ const translations = {
         general_settings: "إعدادات عامة",
         license_info: "معلومات الترخيص",
         store_name: "اسم المتجر",
-        tax_number: "الرقم الضريبي"
+        tax_number: "الرقم الضريبي",
+        admin_pin: "رمز المدير",
+        invalid_pin: "رمز غير صحيح",
+        actions: "إجراءات",
+        delete: "حذف",
+        order_history: "أرشيف الطلبات",
+        date: "التاريخ",
+        close: "إغلاق"
     }
 };
 
@@ -185,6 +192,13 @@ translations.en.general_settings = "General Settings";
 translations.en.license_info = "License Info";
 translations.en.store_name = "Store Name";
 translations.en.tax_number = "Tax Number";
+translations.en.admin_pin = "Admin PIN";
+translations.en.invalid_pin = "Invalid PIN";
+translations.en.actions = "Actions";
+translations.en.delete = "Delete";
+translations.en.order_history = "Order History";
+translations.en.date = "Date";
+translations.en.close = "Close";
 
 let currentLang = 'en';
 

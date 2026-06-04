@@ -33,6 +33,11 @@ async function loadInventoryData() {
                         ${window.t(statusTextKey)}
                     </span>
                 </td>
+                <td>
+                    <button class="custom-btn" style="padding: 6px 12px; background: var(--primary); margin: 0; width: auto;" onclick="window.deleteInventory(${item.id})">
+                        ${window.t('delete') || 'Delete'}
+                    </button>
+                </td>
             `;
             tbody.appendChild(tr);
         });
@@ -67,6 +72,17 @@ document.getElementById('add-inv-btn').addEventListener('click', async () => {
         alert("Failed to save inventory item.");
     }
 });
+
+window.deleteInventory = async function(id) {
+    if (!confirm("Are you sure you want to delete this inventory item? Associated recipes will also be deleted.")) return;
+    try {
+        await window.api.deleteInventoryItem(id);
+        loadInventoryData();
+    } catch (e) {
+        console.error(e);
+        alert("Failed to delete inventory item.");
+    }
+}
 
 // Expose globally for tab switching
 window.loadInventoryData = loadInventoryData;

@@ -32,7 +32,7 @@ function setupSchema() {
         db.run(`CREATE TABLE IF NOT EXISTS recipes (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, inventory_id INTEGER, quantity_required REAL NOT NULL, FOREIGN KEY (item_id) REFERENCES items (id), FOREIGN KEY (inventory_id) REFERENCES inventory (id))`);
 
         // Settings
-        db.run(`CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, store_name TEXT, tax_number TEXT)`);
+        db.run(`CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, store_name TEXT, tax_number TEXT, admin_pin TEXT DEFAULT '0000')`);
 
         // Seed initial data if empty
         db.get('SELECT COUNT(*) AS count FROM categories', [], (err, row) => {
@@ -71,8 +71,26 @@ function setupSchema() {
         // Seed Settings
         db.get('SELECT COUNT(*) AS count FROM settings', [], (err, row) => {
             if (!err && row.count === 0) {
-                db.run(`INSERT INTO settings (store_name, tax_number) VALUES ('My Restaurant', '1234567890')`);
+                db.run(`INSERT INTO settings (store_name, tax_number, admin_pin) VALUES ('My Restaurant', '1234567890', '0000')`);
             }
+        });
+    });
+}
+
+function getCustomerOrders(customerId) {
+    return new Promise((resolve, reject) => {
+        db.all("SELECT * FROM orders WHERE customer_id = ? ORDER BY order_date DESC", [customerId], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+
+function getAllCustomers() {
+    return new Promise((resolve, reject) => {
+        db.all("SELECT * FROM customers ORDER BY name ASC", [], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
         });
     });
 }
@@ -85,19 +103,46 @@ function getSettings() {
     });
 }
 
-function saveSettings(storeName, taxNumber) {
+function saveSettings(storeName, taxNumber, adminPin) {
     return new Promise((resolve, reject) => {
         db.get("SELECT id FROM settings ORDER BY id DESC LIMIT 1", [], (err, row) => {
             if (err) return reject(err);
+
+            const params = [storeName, taxNumber];
+            let updateQuery = `UPDATE settings SET store_name = ?, tax_number = ?`;
+            let insertQuery = `INSERT INTO settings (store_name, tax_number`;
+            let insertValues = `VALUES (?, ?`;
+
+            if (adminPin) {
+                updateQuery += `, admin_pin = ?`;
+                insertQuery += `, admin_pin`;
+                insertValues += `, ?`;
+                params.push(adminPin);
+            }
+
             if (row) {
-                db.run(`UPDATE settings SET store_name = ?, tax_number = ? WHERE id = ?`, [storeName, taxNumber, row.id], err => {
+                updateQuery += ` WHERE id = ?`;
+                params.push(row.id);
+                db.run(updateQuery, params, err => {
                     if (err) reject(err); else resolve(true);
                 });
             } else {
-                db.run(`INSERT INTO settings (store_name, tax_number) VALUES (?, ?)`, [storeName, taxNumber], err => {
+                insertQuery += `) ${insertValues})`;
+                db.run(insertQuery, params, err => {
                     if (err) reject(err); else resolve(true);
                 });
             }
+        });
+    });
+}
+
+function verifyPin(pin) {
+    return new Promise((resolve, reject) => {
+        db.get("SELECT admin_pin FROM settings ORDER BY id DESC LIMIT 1", [], (err, row) => {
+            if (err) return reject(err);
+            // Default pin is 0000 if not set
+            const actualPin = row && row.admin_pin ? row.admin_pin : '0000';
+            resolve(pin === actualPin);
         });
     });
 }
@@ -143,6 +188,30 @@ function addRecipe(itemId, inventoryId, qty) {
         db.run(`INSERT INTO recipes (item_id, inventory_id, quantity_required) VALUES (?, ?, ?)`,
         [itemId, inventoryId, qty], function(err) {
             if (err) reject(err); else resolve(this.lastID);
+        });
+    });
+}
+
+function deleteInventoryItem(id) {
+    return new Promise((resolve, reject) => {
+        // Also delete associated recipes
+        db.run(`DELETE FROM recipes WHERE inventory_id = ?`, [id], (err) => {
+            if (err) return reject(err);
+            db.run(`DELETE FROM inventory WHERE id = ?`, [id], function(err) {
+                if (err) reject(err); else resolve(this.changes);
+            });
+        });
+    });
+}
+
+function deleteMenuItem(id) {
+    return new Promise((resolve, reject) => {
+        // Also delete associated recipes
+        db.run(`DELETE FROM recipes WHERE item_id = ?`, [id], (err) => {
+            if (err) return reject(err);
+            db.run(`DELETE FROM items WHERE id = ?`, [id], function(err) {
+                if (err) reject(err); else resolve(this.changes);
+            });
         });
     });
 }
@@ -335,12 +404,17 @@ module.exports = {
     checkLicense,
     activateLicense,
     getCustomerByPhone,
+    getAllCustomers,
+    getCustomerOrders,
     saveCustomer,
     getDashboardStats,
     getInventory,
     addInventoryItem,
     addMenuItem,
     addRecipe,
+    deleteInventoryItem,
+    deleteMenuItem,
     getSettings,
-    saveSettings
+    saveSettings,
+    verifyPin
 };

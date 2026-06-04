@@ -14,10 +14,12 @@ async function loadSettingsData() {
 document.getElementById('save-settings-btn').addEventListener('click', async () => {
     const storeName = document.getElementById('store-name').value.trim();
     const taxNumber = document.getElementById('tax-number').value.trim();
+    const pin = document.getElementById('admin-pin-setting').value.trim();
 
     try {
-        await window.api.saveSettings(storeName, taxNumber);
+        await window.api.saveSettings(storeName, taxNumber, pin || null);
         alert(window.t('save_success') || "Saved successfully!");
+        document.getElementById('admin-pin-setting').value = '';
     } catch (e) {
         console.error("Failed to save settings:", e);
     }

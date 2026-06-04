@@ -1,8 +1,23 @@
 let typeChartInstance = null;
 let paymentChartInstance = null;
 
+let pendingTabId = null;
+
 // Tab Switching Logic
 window.switchTab = function(tabId) {
+    if (tabId !== 'pos') {
+        // Require PIN for Dashboard, Customers, Inventory, Menu, Settings
+        pendingTabId = tabId;
+        document.getElementById('pin-input').value = '';
+        document.getElementById('pin-modal').style.display = 'flex';
+        document.getElementById('pin-input').focus();
+        return;
+    }
+
+    executeTabSwitch(tabId);
+};
+
+async function executeTabSwitch(tabId) {
     // Update active class on nav links
     document.querySelectorAll('.nav-links li').forEach(li => li.classList.remove('active'));
     document.getElementById(`nav-${tabId}`).classList.add('active');
@@ -14,6 +29,7 @@ window.switchTab = function(tabId) {
     document.getElementById('main-menu').style.display = 'none';
     document.getElementById('main-inventory').style.display = 'none';
     document.getElementById('main-settings').style.display = 'none';
+    document.getElementById('main-customers').style.display = 'none';
     document.getElementById('under-construction-panel').style.display = 'none';
 
     // Show selected container
@@ -32,11 +48,38 @@ window.switchTab = function(tabId) {
     } else if (tabId === 'settings') {
         document.getElementById('main-settings').style.display = 'flex';
         if(window.loadSettingsData) window.loadSettingsData();
+    } else if (tabId === 'customers') {
+        document.getElementById('main-customers').style.display = 'flex';
+        if(window.loadCustomersData) window.loadCustomersData();
     } else {
-        // Placeholder for other tabs (Customers)
         document.getElementById('under-construction-panel').style.display = 'flex';
     }
-};
+}
+
+document.getElementById('cancel-pin-btn').addEventListener('click', () => {
+    document.getElementById('pin-modal').style.display = 'none';
+    pendingTabId = null;
+});
+
+document.getElementById('submit-pin-btn').addEventListener('click', async () => {
+    const pin = document.getElementById('pin-input').value;
+    try {
+        const isValid = await window.api.verifyPin(pin);
+        if (isValid) {
+            document.getElementById('pin-modal').style.display = 'none';
+            if (pendingTabId) {
+                executeTabSwitch(pendingTabId);
+                pendingTabId = null;
+            }
+        } else {
+            alert(window.t('invalid_pin') || 'Invalid PIN');
+            document.getElementById('pin-input').value = '';
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Error verifying PIN');
+    }
+});
 
 async function loadDashboardData() {
     try {

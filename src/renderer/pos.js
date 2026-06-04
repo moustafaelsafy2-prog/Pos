@@ -183,15 +183,35 @@ function renderCart() {
 
 // Discount & Hold
 document.getElementById('discount-btn').addEventListener('click', () => {
-    const discountVal = prompt(window.t('add_discount') + " ($):", currentDiscount);
+    const discountVal = prompt(window.t('add_discount') + " (e.g., 5 for $5, or 10%):", currentDiscount);
     if (discountVal !== null && discountVal.trim() !== '') {
-        const parsed = parseFloat(discountVal);
-        if (!isNaN(parsed) && parsed >= 0) {
-            currentDiscount = parsed;
-            renderCart();
+        const val = discountVal.trim();
+        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+
+        let calculatedDiscount = 0;
+
+        if (val.endsWith('%')) {
+            const percentage = parseFloat(val.replace('%', ''));
+            if (!isNaN(percentage) && percentage >= 0 && percentage <= 100) {
+                calculatedDiscount = subtotal * (percentage / 100);
+            } else {
+                return alert("Invalid percentage");
+            }
         } else {
-            alert("Invalid discount amount");
+            const amount = parseFloat(val);
+            if (!isNaN(amount) && amount >= 0) {
+                calculatedDiscount = amount;
+            } else {
+                return alert("Invalid amount");
+            }
         }
+
+        if (calculatedDiscount > subtotal) {
+            return alert("Discount cannot exceed subtotal");
+        }
+
+        currentDiscount = calculatedDiscount;
+        renderCart();
     }
 });
 
