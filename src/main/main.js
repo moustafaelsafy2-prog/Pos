@@ -72,6 +72,14 @@ ipcMain.handle('db-add-recipe', async (event, itemId, invId, qty) => {
     return await dbManager.addRecipe(itemId, invId, qty);
 });
 
+ipcMain.handle('db-get-settings', async () => {
+    return await dbManager.getSettings();
+});
+
+ipcMain.handle('db-save-settings', async (event, storeName, taxNumber) => {
+    return await dbManager.saveSettings(storeName, taxNumber);
+});
+
 ipcMain.handle('check-license', async () => {
     return await dbManager.checkLicense();
 });

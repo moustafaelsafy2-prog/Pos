@@ -118,7 +118,12 @@ const translations = {
         save_success: "تم الحفظ بنجاح",
         main_course: "الطبق الرئيسي",
         drinks: "مشروبات",
-        desserts: "حلويات"
+        desserts: "حلويات",
+        nav_menu: "قائمة الطعام",
+        general_settings: "إعدادات عامة",
+        license_info: "معلومات الترخيص",
+        store_name: "اسم المتجر",
+        tax_number: "الرقم الضريبي"
     }
 };
 
@@ -175,6 +180,11 @@ translations.en.save_success = "Saved Successfully";
 translations.en.main_course = "Main Course";
 translations.en.drinks = "Drinks";
 translations.en.desserts = "Desserts";
+translations.en.nav_menu = "Menu";
+translations.en.general_settings = "General Settings";
+translations.en.license_info = "License Info";
+translations.en.store_name = "Store Name";
+translations.en.tax_number = "Tax Number";
 
 let currentLang = 'en';
 

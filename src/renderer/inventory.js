@@ -43,5 +43,30 @@ async function loadInventoryData() {
 
 document.getElementById('refresh-inventory-btn').addEventListener('click', loadInventoryData);
 
+// Add Inventory Item Form inside Inventory Tab
+document.getElementById('add-inv-btn').addEventListener('click', async () => {
+    const name = document.getElementById('new-inv-name').value.trim();
+    const unit = document.getElementById('new-inv-unit').value.trim();
+    const stock = parseFloat(document.getElementById('new-inv-stock').value);
+    const thresh = parseFloat(document.getElementById('new-inv-thresh').value);
+
+    if (!name || !unit || isNaN(stock) || isNaN(thresh)) {
+        return alert(window.t('fill_all_fields') || "Please fill all fields correctly.");
+    }
+
+    try {
+        await window.api.addInventoryItem(name, unit, stock, thresh);
+        alert(window.t('save_success') || "Saved successfully!");
+        document.getElementById('new-inv-name').value = '';
+        document.getElementById('new-inv-unit').value = '';
+        document.getElementById('new-inv-stock').value = '';
+        document.getElementById('new-inv-thresh').value = '';
+        loadInventoryData(); // Refresh table
+    } catch (e) {
+        console.error(e);
+        alert("Failed to save inventory item.");
+    }
+});
+
 // Expose globally for tab switching
 window.loadInventoryData = loadInventoryData;

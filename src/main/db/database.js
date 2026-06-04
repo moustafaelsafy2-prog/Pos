@@ -31,6 +31,9 @@ function setupSchema() {
         db.run(`CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, unit TEXT NOT NULL, current_stock REAL DEFAULT 0, low_stock_threshold REAL DEFAULT 10)`);
         db.run(`CREATE TABLE IF NOT EXISTS recipes (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, inventory_id INTEGER, quantity_required REAL NOT NULL, FOREIGN KEY (item_id) REFERENCES items (id), FOREIGN KEY (inventory_id) REFERENCES inventory (id))`);
 
+        // Settings
+        db.run(`CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, store_name TEXT, tax_number TEXT)`);
+
         // Seed initial data if empty
         db.get('SELECT COUNT(*) AS count FROM categories', [], (err, row) => {
             if (!err && row.count === 0) {
@@ -62,6 +65,38 @@ function setupSchema() {
                     (2, 4, 1.0),
                     (2, 5, 0.1),
                     (2, 3, 2.0)`);
+            }
+        });
+
+        // Seed Settings
+        db.get('SELECT COUNT(*) AS count FROM settings', [], (err, row) => {
+            if (!err && row.count === 0) {
+                db.run(`INSERT INTO settings (store_name, tax_number) VALUES ('My Restaurant', '1234567890')`);
+            }
+        });
+    });
+}
+
+function getSettings() {
+    return new Promise((resolve, reject) => {
+        db.get("SELECT * FROM settings ORDER BY id DESC LIMIT 1", [], (err, row) => {
+            if (err) reject(err); else resolve(row);
+        });
+    });
+}
+
+function saveSettings(storeName, taxNumber) {
+    return new Promise((resolve, reject) => {
+        db.get("SELECT id FROM settings ORDER BY id DESC LIMIT 1", [], (err, row) => {
+            if (err) return reject(err);
+            if (row) {
+                db.run(`UPDATE settings SET store_name = ?, tax_number = ? WHERE id = ?`, [storeName, taxNumber, row.id], err => {
+                    if (err) reject(err); else resolve(true);
+                });
+            } else {
+                db.run(`INSERT INTO settings (store_name, tax_number) VALUES (?, ?)`, [storeName, taxNumber], err => {
+                    if (err) reject(err); else resolve(true);
+                });
             }
         });
     });
@@ -305,5 +340,7 @@ module.exports = {
     getInventory,
     addInventoryItem,
     addMenuItem,
-    addRecipe
+    addRecipe,
+    getSettings,
+    saveSettings
 };

@@ -11,6 +11,7 @@ window.switchTab = function(tabId) {
     document.getElementById('main-pos').style.display = 'none';
     document.getElementById('right-panel').style.display = 'none'; // Right panel belongs to POS
     document.getElementById('main-dashboard').style.display = 'none';
+    document.getElementById('main-menu').style.display = 'none';
     document.getElementById('main-inventory').style.display = 'none';
     document.getElementById('main-settings').style.display = 'none';
     document.getElementById('under-construction-panel').style.display = 'none';
@@ -25,6 +26,9 @@ window.switchTab = function(tabId) {
     } else if (tabId === 'inventory') {
         document.getElementById('main-inventory').style.display = 'flex';
         if(window.loadInventoryData) window.loadInventoryData();
+    } else if (tabId === 'menu') {
+        document.getElementById('main-menu').style.display = 'flex';
+        if(window.loadMenuManagementData) window.loadMenuManagementData();
     } else if (tabId === 'settings') {
         document.getElementById('main-settings').style.display = 'flex';
         if(window.loadSettingsData) window.loadSettingsData();

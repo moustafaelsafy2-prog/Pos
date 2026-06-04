@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('api', {
     addInventoryItem: (name, unit, stock, thresh) => ipcRenderer.invoke('db-add-inventory', name, unit, stock, thresh),
     addMenuItem: (catId, name, price, img) => ipcRenderer.invoke('db-add-menu-item', catId, name, price, img),
     addRecipe: (itemId, invId, qty) => ipcRenderer.invoke('db-add-recipe', itemId, invId, qty),
+    getSettings: () => ipcRenderer.invoke('db-get-settings'),
+    saveSettings: (storeName, taxNumber) => ipcRenderer.invoke('db-save-settings', storeName, taxNumber),
     checkLicense: () => ipcRenderer.invoke('check-license'),
     activateLicense: (key) => ipcRenderer.invoke('activate-license', key)
 });

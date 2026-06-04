@@ -34,6 +34,10 @@
             <span class="nav-icon">📊</span>
             <span data-i18n="nav_dashboard" class="nav-text">Dashboard</span>
           </li>
+          <li onclick="window.switchTab('menu')" id="nav-menu">
+            <span class="nav-icon">🍔</span>
+            <span data-i18n="nav_menu" class="nav-text">Menu</span>
+          </li>
           <li onclick="window.switchTab('inventory')" id="nav-inventory">
             <span class="nav-icon">📦</span>
             <span data-i18n="nav_inventory" class="nav-text">Inventory</span>
@@ -131,32 +135,9 @@
           <button id="refresh-inventory-btn" class="secondary-btn" style="width: auto; padding: 10px 24px;" data-i18n="refresh">Refresh</button>
         </div>
 
-        <div class="chart-card">
-          <table class="premium-table" style="width: 100%; text-align: left; border-collapse: collapse;">
-            <thead>
-              <tr style="border-bottom: 2px solid var(--gray-bg); color: var(--gray-text);">
-                <th style="padding: 16px;" data-i18n="item_name">Item Name</th>
-                <th style="padding: 16px;" data-i18n="current_stock">Current Stock</th>
-                <th style="padding: 16px;" data-i18n="unit">Unit</th>
-                <th style="padding: 16px;" data-i18n="status">Status</th>
-              </tr>
-            </thead>
-            <tbody id="inventory-tbody">
-              <!-- Rendered via JS -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Main Settings Content -->
-      <div id="main-settings" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: var(--gray-bg); padding: 40px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
-          <h1 data-i18n="nav_settings" style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">Settings</h1>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-          <!-- Inventory Management -->
-          <div class="chart-card">
+        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px;">
+          <!-- Add New Inventory Item Form -->
+          <div class="chart-card" style="height: fit-content;">
             <h3 data-i18n="add_inventory">Add Inventory Item</h3>
             <input type="text" id="new-inv-name" class="custom-input" data-i18n-placeholder="item_name" placeholder="Item Name">
             <div style="display: flex; gap: 10px;">
@@ -167,6 +148,32 @@
             <button id="add-inv-btn" class="custom-btn" style="background: var(--secondary);" data-i18n="save">Save</button>
           </div>
 
+          <!-- Inventory Table -->
+          <div class="chart-card">
+            <table class="premium-table" style="width: 100%; text-align: left; border-collapse: collapse;">
+              <thead>
+                <tr style="border-bottom: 2px solid var(--gray-bg); color: var(--gray-text);">
+                  <th style="padding: 16px;" data-i18n="item_name">Item Name</th>
+                  <th style="padding: 16px;" data-i18n="current_stock">Current Stock</th>
+                  <th style="padding: 16px;" data-i18n="unit">Unit</th>
+                  <th style="padding: 16px;" data-i18n="status">Status</th>
+                </tr>
+              </thead>
+              <tbody id="inventory-tbody">
+                <!-- Rendered via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Menu/Products Content -->
+      <div id="main-menu" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: var(--gray-bg); padding: 40px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+          <h1 data-i18n="nav_menu" style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">Menu Management</h1>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
           <!-- Menu Management -->
           <div class="chart-card">
             <h3 data-i18n="add_menu_item">Add Menu Item</h3>
@@ -182,19 +189,41 @@
           </div>
 
           <!-- Recipes Management -->
-          <div class="chart-card" style="grid-column: span 2;">
+          <div class="chart-card">
             <h3 data-i18n="link_recipe">Link Recipe (Auto-Deduct)</h3>
-            <div style="display: flex; gap: 10px; align-items: center;">
-              <select id="recipe-menu-item" class="custom-input" style="flex: 1;">
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <select id="recipe-menu-item" class="custom-input">
                 <option value="" disabled selected data-i18n="select_menu_item">Select Menu Item</option>
               </select>
-              <span style="font-size: 24px; color: var(--gray-text);">+</span>
-              <select id="recipe-inv-item" class="custom-input" style="flex: 1;">
+              <select id="recipe-inv-item" class="custom-input">
                 <option value="" disabled selected data-i18n="select_inv_item">Select Inventory Item</option>
               </select>
-              <span style="font-size: 24px; color: var(--gray-text);">=</span>
-              <input type="number" id="recipe-qty" class="custom-input" style="flex: 1; margin-bottom: 0;" data-i18n-placeholder="qty_required" placeholder="Qty Required">
-              <button id="add-recipe-btn" class="custom-btn" style="flex: 1; margin-bottom: 0;" data-i18n="link_recipe_btn">Link</button>
+              <input type="number" id="recipe-qty" class="custom-input" data-i18n-placeholder="qty_required" placeholder="Qty Required">
+              <button id="add-recipe-btn" class="custom-btn" data-i18n="link_recipe_btn">Link</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Settings Content -->
+      <div id="main-settings" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: var(--gray-bg); padding: 40px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+          <h1 data-i18n="nav_settings" style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">Settings</h1>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+          <div class="chart-card">
+            <h3 data-i18n="general_settings">General Settings</h3>
+            <input type="text" id="store-name" class="custom-input" data-i18n-placeholder="store_name" placeholder="Store Name">
+            <input type="text" id="tax-number" class="custom-input" data-i18n-placeholder="tax_number" placeholder="Tax Number">
+            <button id="save-settings-btn" class="custom-btn" style="background: var(--dark);" data-i18n="save">Save</button>
+          </div>
+
+          <div class="chart-card">
+            <h3 data-i18n="license_info">License Info</h3>
+            <div style="padding: 16px; background: var(--gray-bg); border-radius: 12px; margin-bottom: 16px;">
+              <div style="color: var(--gray-text); font-size: 13px;">Status</div>
+              <div id="settings-license-status" style="font-weight: 700; font-size: 18px; color: var(--secondary);">Active</div>
             </div>
           </div>
         </div>
@@ -308,6 +337,7 @@
     <script src="pos.js"></script>
     <script src="dashboard.js"></script>
     <script src="inventory.js"></script>
+    <script src="menu.js"></script>
     <script src="settings.js"></script>
     <script src="license.js"></script>
   </body>
