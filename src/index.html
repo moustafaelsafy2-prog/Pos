@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <title>Restaurant POS System</title>
+    <link rel="stylesheet" href="pos.css">
+  </head>
+  <body>
+    <div id="header">
+      <h1>Restaurant POS <span id="license-status" style="font-size: 14px; float: right; margin-right: 20px;">Checking License...</span></h1>
+    </div>
+
+    <div id="license-modal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <h2>License Activation</h2>
+        <p>Please enter your serial key to activate the POS system.</p>
+        <input type="text" id="serial-key-input" placeholder="XXXX-XXXX-XXXX-XXXX" />
+        <button id="activate-btn">Activate</button>
+        <p id="license-error" style="color: red; display: none;"></p>
+      </div>
+    </div>
+
+    <div id="main-pos" style="display: none;">
+      <div id="left-panel">
+        <div id="categories-container">
+          <!-- Categories will be loaded here -->
+        </div>
+        <div id="items-container">
+          <!-- Items will be loaded here -->
+        </div>
+      </div>
+      <div id="right-panel">
+        <div id="cart-header">
+          <h2>Current Order</h2>
+        </div>
+        <div id="cart-items">
+          <!-- Cart items will be loaded here -->
+        </div>
+        <div id="cart-summary">
+          <div class="summary-row">
+            <span>Total:</span>
+            <span id="cart-total">$0.00</span>
+          </div>
+          <button id="checkout-btn">Checkout</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="pos.js"></script>
+    <script src="license.js"></script>
+  </body>
+</html>
