@@ -46,7 +46,10 @@ function renderItems(categoryId) {
     filteredItems.forEach(item => {
         const card = document.createElement('div');
         card.className = 'item-card';
+        // Simple fallback icon logic based on category
+        const icon = item.category_id === 1 ? '🍔' : (item.category_id === 2 ? '🥤' : '🍰');
         card.innerHTML = `
+            <div class="item-icon">${icon}</div>
             <div class="item-name">${item.name}</div>
             <div class="item-price">$${item.price.toFixed(2)}</div>
         `;
@@ -97,10 +100,10 @@ function renderCart() {
             </div>
             <div class="cart-item-controls">
                 <button class="qty-btn" onclick="window.updateQty(${item.id}, -1)">-</button>
-                <span>${item.qty}</span>
+                <span style="font-weight:600; min-width: 20px; text-align:center;">${item.qty}</span>
                 <button class="qty-btn" onclick="window.updateQty(${item.id}, 1)">+</button>
             </div>
-            <div style="font-weight: bold; width: 60px; text-align: right;">
+            <div class="cart-item-subtotal">
                 $${subtotal.toFixed(2)}
             </div>
         `;

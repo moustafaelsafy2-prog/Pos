@@ -1,6 +1,5 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-// Import database logic. We will modify database.js to export an init function.
 const dbManager = require('./db/database');
 
 function createWindow () {
@@ -9,12 +8,12 @@ function createWindow () {
     height: 800,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
-      nodeIntegration: false, // Security fix
-      contextIsolation: true  // Security fix
+      nodeIntegration: false,
+      contextIsolation: true
     }
   });
 
-  mainWindow.loadFile(path.join(__dirname, 'index.html'));
+  mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 }
 
 app.whenReady().then(() => {
