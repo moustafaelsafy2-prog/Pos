@@ -30,7 +30,12 @@ function setupSchema() {
         db.run(`CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT UNIQUE, address TEXT)`);
         db.run(`CREATE TABLE IF NOT EXISTS drivers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT)`);
         db.run(`CREATE TABLE IF NOT EXISTS shifts (id INTEGER PRIMARY KEY AUTOINCREMENT, cashier_name TEXT NOT NULL, start_time DATETIME DEFAULT CURRENT_TIMESTAMP, end_time DATETIME, starting_cash REAL DEFAULT 0, expected_cash REAL DEFAULT 0, actual_cash REAL DEFAULT 0, status TEXT DEFAULT 'open')`);
-        db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, shift_id INTEGER, customer_id INTEGER, driver_id INTEGER, order_type TEXT DEFAULT 'Dine-in', subtotal REAL DEFAULT 0, tax_amount REAL DEFAULT 0, discount REAL DEFAULT 0, total_amount REAL NOT NULL, payment_method TEXT DEFAULT 'Cash', order_date DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'preparing', is_settled INTEGER DEFAULT 0, FOREIGN KEY (customer_id) REFERENCES customers (id), FOREIGN KEY (shift_id) REFERENCES shifts (id), FOREIGN KEY (driver_id) REFERENCES drivers (id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, shift_id INTEGER, customer_id INTEGER, driver_id INTEGER, order_type TEXT DEFAULT 'Dine-in', subtotal REAL DEFAULT 0, tax_amount REAL DEFAULT 0, discount REAL DEFAULT 0, total_amount REAL NOT NULL, payment_method TEXT DEFAULT 'Cash', order_date DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'preparing', is_settled INTEGER DEFAULT 0, is_synced INTEGER DEFAULT 0, FOREIGN KEY (customer_id) REFERENCES customers (id), FOREIGN KEY (shift_id) REFERENCES shifts (id), FOREIGN KEY (driver_id) REFERENCES drivers (id))`);
+
+        db.run(`ALTER TABLE orders ADD COLUMN is_synced INTEGER DEFAULT 0`, (err) => {
+            // Ignore error if column already exists
+        });
+
         db.run(`CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, item_id INTEGER, quantity INTEGER NOT NULL, subtotal REAL NOT NULL, notes TEXT, FOREIGN KEY (order_id) REFERENCES orders (id), FOREIGN KEY (item_id) REFERENCES items (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS license (id INTEGER PRIMARY KEY AUTOINCREMENT, serial_key TEXT, activated_at DATETIME, expires_at DATETIME, machine_id TEXT)`);
 
@@ -39,7 +44,13 @@ function setupSchema() {
         db.run(`CREATE TABLE IF NOT EXISTS recipes (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, inventory_id INTEGER, quantity_required REAL NOT NULL, FOREIGN KEY (item_id) REFERENCES items (id), FOREIGN KEY (inventory_id) REFERENCES inventory (id))`);
 
         // Settings & Users
-        db.run(`CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, store_name TEXT, tax_number TEXT)`);
+        db.run(`CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, store_name TEXT, tax_number TEXT, sync_url TEXT)`);
+
+        // Add sync_url to existing settings table if it doesn't exist
+        db.run(`ALTER TABLE settings ADD COLUMN sync_url TEXT`, (err) => {
+            // Ignore error if column already exists
+        });
+
         db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, pin TEXT UNIQUE NOT NULL, role TEXT DEFAULT 'cashier')`);
 
         // Seed initial data if empty
@@ -95,7 +106,14 @@ function setupSchema() {
 
 function getDrivers() {
     return new Promise((resolve, reject) => {
-        db.all("SELECT * FROM drivers", [], (err, rows) => {
+        const query = `
+            SELECT d.*,
+                   COUNT(o.id) as pending_deliveries
+            FROM drivers d
+            LEFT JOIN orders o ON o.driver_id = d.id AND o.status IN ('preparing', 'ready')
+            GROUP BY d.id
+        `;
+        db.all(query, [], (err, rows) => {
             if (err) reject(err);
             else resolve(rows);
         });
@@ -178,10 +196,60 @@ function getTodayOrders() {
 
 function refundOrder(orderId) {
     return new Promise((resolve, reject) => {
-        // Simple refund: just mark as refunded.
-        // A more advanced version would re-query recipes and add stock back to inventory.
-        db.run("UPDATE orders SET status = 'refunded' WHERE id = ? AND status != 'refunded'", [orderId], function(err) {
-            if (err) reject(err); else resolve(this.changes);
+        db.serialize(() => {
+            db.run("BEGIN TRANSACTION");
+
+            // 1. Mark order as refunded
+            db.run("UPDATE orders SET status = 'refunded' WHERE id = ? AND status != 'refunded'", [orderId], function(err) {
+                if (err || this.changes === 0) {
+                    db.run("ROLLBACK");
+                    return reject(err || new Error("Order not found or already refunded"));
+                }
+
+                // 2. Fetch all items in this order
+                db.all("SELECT item_id, quantity FROM order_items WHERE order_id = ?", [orderId], (err, orderItems) => {
+                    if (err) {
+                        db.run("ROLLBACK");
+                        return reject(err);
+                    }
+
+                    if (!orderItems || orderItems.length === 0) {
+                        db.run("COMMIT");
+                        return resolve(true);
+                    }
+
+                    // 3. For each order item, find its recipe and restore inventory
+                    const restorePromises = orderItems.map(orderItem => {
+                        return new Promise((res, rej) => {
+                            db.all("SELECT inventory_id, quantity_required FROM recipes WHERE item_id = ?", [orderItem.item_id], (err, recipeItems) => {
+                                if (err) return rej(err);
+                                if (!recipeItems || recipeItems.length === 0) return res();
+
+                                const stockUpdates = recipeItems.map(ri => {
+                                    return new Promise((stockRes, stockRej) => {
+                                        const qtyToRestore = ri.quantity_required * orderItem.quantity;
+                                        db.run("UPDATE inventory SET current_stock = current_stock + ? WHERE id = ?", [qtyToRestore, ri.inventory_id], (err) => {
+                                            if (err) stockRej(err); else stockRes();
+                                        });
+                                    });
+                                });
+
+                                Promise.all(stockUpdates).then(res).catch(rej);
+                            });
+                        });
+                    });
+
+                    Promise.all(restorePromises)
+                        .then(() => {
+                            db.run("COMMIT");
+                            resolve(true);
+                        })
+                        .catch(err => {
+                            db.run("ROLLBACK");
+                            reject(err);
+                        });
+                });
+            });
         });
     });
 }
@@ -250,16 +318,16 @@ function getSettings() {
     });
 }
 
-function saveSettings(storeName, taxNumber) {
+function saveSettings(storeName, taxNumber, syncUrl) {
     return new Promise((resolve, reject) => {
         db.get("SELECT id FROM settings ORDER BY id DESC LIMIT 1", [], (err, row) => {
             if (err) return reject(err);
             if (row) {
-                db.run(`UPDATE settings SET store_name = ?, tax_number = ? WHERE id = ?`, [storeName, taxNumber, row.id], err => {
+                db.run(`UPDATE settings SET store_name = ?, tax_number = ?, sync_url = ? WHERE id = ?`, [storeName, taxNumber, syncUrl, row.id], err => {
                     if (err) reject(err); else resolve(true);
                 });
             } else {
-                db.run(`INSERT INTO settings (store_name, tax_number) VALUES (?, ?)`, [storeName, taxNumber], err => {
+                db.run(`INSERT INTO settings (store_name, tax_number, sync_url) VALUES (?, ?, ?)`, [storeName, taxNumber, syncUrl], err => {
                     if (err) reject(err); else resolve(true);
                 });
             }
@@ -468,10 +536,15 @@ function getZReport(shiftId) {
             if (err || !shift) return reject(err || new Error("Shift not found"));
             report.shift = shift;
 
-            db.all(`SELECT payment_method, COUNT(id) as count, SUM(total_amount) as total FROM orders WHERE shift_id = ? GROUP BY payment_method`, [shiftId], (err, rows) => {
+            db.all(`SELECT payment_method, COUNT(id) as count, SUM(total_amount) as total FROM orders WHERE shift_id = ? AND status != 'refunded' GROUP BY payment_method`, [shiftId], (err, rows) => {
                 if (err) return reject(err);
                 report.sales = rows;
-                resolve(report);
+
+                db.all(`SELECT COUNT(id) as count, SUM(total_amount) as total FROM orders WHERE shift_id = ? AND status = 'refunded'`, [shiftId], (err, refundRows) => {
+                    if (err) return reject(err);
+                    report.refunds = refundRows[0] || { count: 0, total: 0 };
+                    resolve(report);
+                });
             });
         });
     });
@@ -502,7 +575,7 @@ function getDashboardStats(startDate = null, endDate = null) {
         Promise.all([
             // 1. Total Revenue & Order Count
             new Promise((res, rej) => {
-                db.get(`SELECT COUNT(id) as totalOrders, SUM(total_amount) as totalRevenue FROM orders ${dateFilterOrders}`, queryParams, (err, row) => {
+                db.get(`SELECT COUNT(id) as totalOrders, SUM(total_amount) as totalRevenue, SUM(tax_amount) as totalTax FROM orders ${dateFilterOrders}`, queryParams, (err, row) => {
                     if (err) rej(err); else res(row);
                 });
             }),
@@ -691,10 +764,46 @@ function activateLicense(token) {
     });
 }
 
+function getUnsyncedOrders() {
+    return new Promise((resolve, reject) => {
+        db.all("SELECT * FROM orders WHERE is_synced = 0 AND status IN ('completed', 'refunded')", [], async (err, orders) => {
+            if (err) return reject(err);
+            if (!orders || orders.length === 0) return resolve([]);
+
+            try {
+                const ordersWithItems = await Promise.all(orders.map(order => {
+                    return new Promise((res, rej) => {
+                        db.all("SELECT * FROM order_items WHERE order_id = ?", [order.id], (err, items) => {
+                            if (err) return rej(err);
+                            order.items = items;
+                            res(order);
+                        });
+                    });
+                }));
+                resolve(ordersWithItems);
+            } catch (e) {
+                reject(e);
+            }
+        });
+    });
+}
+
+function markOrdersSynced(orderIds) {
+    return new Promise((resolve, reject) => {
+        if (!orderIds || orderIds.length === 0) return resolve(true);
+        const placeholders = orderIds.map(() => '?').join(',');
+        db.run(`UPDATE orders SET is_synced = 1 WHERE id IN (${placeholders})`, orderIds, function(err) {
+            if (err) reject(err); else resolve(this.changes);
+        });
+    });
+}
+
 module.exports = {
     initDb,
     getCategories,
     getItems,
+    getUnsyncedOrders,
+    markOrdersSynced,
     submitOrder,
     checkLicense,
     activateLicense,

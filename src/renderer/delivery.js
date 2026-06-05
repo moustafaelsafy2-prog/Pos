@@ -8,13 +8,14 @@ async function loadDeliveryData() {
         const dBody = document.getElementById('drivers-tbody');
         dBody.innerHTML = '';
         if (!currentDriversList || currentDriversList.length === 0) {
-            dBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--gray-text);">No drivers found.</td></tr>`;
+            dBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--gray-text);">No drivers found.</td></tr>`;
         } else {
             currentDriversList.forEach(d => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td style="font-weight: 600;">${d.name}</td>
                     <td style="color: var(--gray-text);">${d.phone}</td>
+                    <td style="color: var(--secondary); font-weight: bold;">${d.pending_deliveries || 0}</td>
                     <td>
                         <button class="custom-btn" style="padding: 6px 12px; background: var(--primary); margin: 0; width: auto;" onclick="window.deleteDriver(${d.id})">
                             ${window.t('delete') || 'Delete'}

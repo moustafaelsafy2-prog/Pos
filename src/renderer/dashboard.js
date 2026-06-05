@@ -132,11 +132,15 @@ async function loadDashboardData() {
         // Populate KPIs
         const totalRev = stats.overview.totalRevenue || 0;
         const totalOrd = stats.overview.totalOrders || 0;
+        const totalVat = stats.overview.totalTax || 0;
         const avgOrd = totalOrd > 0 ? (totalRev / totalOrd) : 0;
 
         document.getElementById('kpi-revenue').textContent = `$${totalRev.toFixed(2)}`;
         document.getElementById('kpi-orders').textContent = totalOrd;
         document.getElementById('kpi-avg').textContent = `$${avgOrd.toFixed(2)}`;
+        if (document.getElementById('kpi-vat')) {
+            document.getElementById('kpi-vat').textContent = `$${totalVat.toFixed(2)}`;
+        }
 
         // Render Top Items
         const topItemsContainer = document.getElementById('top-items-list');
@@ -252,3 +256,34 @@ document.getElementById('clear-filter-btn').addEventListener('click', () => {
 });
 
 document.getElementById('refresh-dashboard-btn').addEventListener('click', loadDashboardData);
+
+if (document.getElementById('export-csv-btn')) {
+    document.getElementById('export-csv-btn').addEventListener('click', async () => {
+        try {
+            const stats = await window.api.getDashboardStats(currentStartDate, currentEndDate);
+            let csv = "Report Type,Data\n";
+            csv += `Total Revenue,$${(stats.overview.totalRevenue || 0).toFixed(2)}\n`;
+            csv += `Total Orders,${stats.overview.totalOrders || 0}\n`;
+            csv += `Total VAT,$${(stats.overview.totalTax || 0).toFixed(2)}\n\n`;
+
+            csv += "Order Type,Count\n";
+            stats.byType.forEach(row => {
+                csv += `${row.order_type},${row.count}\n`;
+            });
+            csv += "\n";
+
+            csv += "Payment Method,Total\n";
+            stats.byPayment.forEach(row => {
+                csv += `${row.payment_method},$${(row.total || 0).toFixed(2)}\n`;
+            });
+
+            const res = await window.api.exportCsv(csv, "dashboard_report.csv");
+            if (res.success) {
+                alert(`Exported successfully to: ${res.path}`);
+            }
+        } catch (e) {
+            console.error("Export failed:", e);
+            alert("Export failed.");
+        }
+    });
+}

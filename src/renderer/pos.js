@@ -497,6 +497,14 @@ async function printZReport(shiftId, expected, actual) {
             salesHtml += `<div class="receipt-line-item"><span>${s.payment_method}:</span><span>$${s.total.toFixed(2)}</span></div>`;
         });
 
+        let refundsHtml = '';
+        if (report.refunds && report.refunds.count > 0) {
+            refundsHtml = `
+                <hr class="receipt-divider">
+                <div class="receipt-line-item"><span>Refunds (${report.refunds.count}):</span><span>-$${(report.refunds.total || 0).toFixed(2)}</span></div>
+            `;
+        }
+
         const diff = actual - expected;
         const diffText = diff === 0 ? 'Perfect' : (diff > 0 ? `Over (+$${diff.toFixed(2)})` : `Short (-$${Math.abs(diff).toFixed(2)})`);
 
@@ -512,6 +520,7 @@ async function printZReport(shiftId, expected, actual) {
             <div class="receipt-divider"></div>
             <h3 style="margin: 5px 0;">Sales Summary</h3>
             ${salesHtml}
+            ${refundsHtml}
             <div class="receipt-divider"></div>
             <h3 style="margin: 5px 0;">Cash Drawer</h3>
             <div class="receipt-line-item"><span>Starting Cash:</span><span>$${report.shift.starting_cash.toFixed(2)}</span></div>

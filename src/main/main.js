@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const dbManager = require('./db/database');
 
 function createWindow () {
@@ -16,11 +17,59 @@ function createWindow () {
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 }
 
+const http = require('http');
+const https = require('https');
+
+async function runBackgroundSync() {
+    try {
+        const settings = await dbManager.getSettings();
+        if (!settings || !settings.sync_url) return;
+
+        const unsyncedOrders = await dbManager.getUnsyncedOrders();
+        if (unsyncedOrders.length === 0) return;
+
+        const syncUrl = new URL(settings.sync_url);
+        const requestModule = syncUrl.protocol === 'https:' ? https : http;
+
+        const postData = JSON.stringify({ orders: unsyncedOrders });
+
+        const options = {
+            hostname: syncUrl.hostname,
+            port: syncUrl.port || (syncUrl.protocol === 'https:' ? 443 : 80),
+            path: syncUrl.pathname || '/sync',
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(postData)
+            }
+        };
+
+        const req = requestModule.request(options, (res) => {
+            if (res.statusCode === 200) {
+                const syncedIds = unsyncedOrders.map(o => o.id);
+                dbManager.markOrdersSynced(syncedIds);
+            }
+        });
+
+        req.on('error', (e) => {
+            console.error(`Sync problem with request: ${e.message}`);
+        });
+
+        req.write(postData);
+        req.end();
+    } catch (e) {
+        console.error("Background sync error:", e);
+    }
+}
+
 app.whenReady().then(() => {
   // Initialize DB in the main process
   dbManager.initDb(app.getPath('userData'));
 
   createWindow();
+
+  // Start background sync loop (every 30 seconds)
+  setInterval(runBackgroundSync, 30000);
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -80,6 +129,21 @@ ipcMain.handle('db-get-dashboard-stats', async (event, startDate, endDate) => {
     return await dbManager.getDashboardStats(startDate, endDate);
 });
 
+const { dialog } = require('electron');
+ipcMain.handle('export-csv', async (event, csvContent, filename) => {
+    const { filePath } = await dialog.showSaveDialog({
+        title: 'Save CSV',
+        defaultPath: path.join(app.getPath('documents'), filename),
+        filters: [{ name: 'CSV Files', extensions: ['csv'] }]
+    });
+
+    if (filePath) {
+        fs.writeFileSync(filePath, csvContent, 'utf8');
+        return { success: true, path: filePath };
+    }
+    return { success: false };
+});
+
 ipcMain.handle('db-get-inventory', async () => {
     return await dbManager.getInventory();
 });
@@ -116,8 +180,8 @@ ipcMain.handle('db-get-settings', async () => {
     return await dbManager.getSettings();
 });
 
-ipcMain.handle('db-save-settings', async (event, storeName, taxNumber) => {
-    return await dbManager.saveSettings(storeName, taxNumber);
+ipcMain.handle('db-save-settings', async (event, storeName, taxNumber, syncUrl) => {
+    return await dbManager.saveSettings(storeName, taxNumber, syncUrl);
 });
 
 ipcMain.handle('db-login-user', async (event, pin) => {

@@ -44,18 +44,31 @@ async function loadTodayOrders() {
     }
 }
 
-window.refundOrder = async function(orderId) {
-    if (!confirm(window.t('confirm_refund') || "Are you sure you want to refund this order?")) return;
+window.refundOrder = function(orderId) {
+    document.getElementById('return-order-id').value = orderId;
+    document.getElementById('return-options-modal').style.display = 'flex';
+}
+
+document.getElementById('cancel-return-btn').addEventListener('click', () => {
+    document.getElementById('return-options-modal').style.display = 'none';
+});
+
+document.getElementById('full-return-btn').addEventListener('click', async () => {
+    const orderId = document.getElementById('return-order-id').value;
+    if (!orderId) return;
+
+    if (!confirm(window.t('confirm_refund') || "Are you sure you want to refund this order? Items will be returned to stock.")) return;
 
     try {
         await window.api.refundOrder(orderId);
         alert(window.t('refund_success') || "Order refunded successfully.");
+        document.getElementById('return-options-modal').style.display = 'none';
         loadTodayOrders();
     } catch (e) {
         console.error("Failed to refund order", e);
         alert("Failed to refund order.");
     }
-}
+});
 
 document.getElementById('refresh-orders-btn').addEventListener('click', loadTodayOrders);
 

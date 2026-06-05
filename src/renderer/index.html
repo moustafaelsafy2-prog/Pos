@@ -122,7 +122,8 @@
             <button id="clear-filter-btn" class="secondary-btn" style="width: auto; padding: 8px 16px; margin: 0; display: none;" data-i18n="clear_filter">Clear</button>
           </div>
         </div>
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 30px;">
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 30px; gap: 10px;">
+             <button id="export-csv-btn" class="secondary-btn" style="width: auto; padding: 8px 16px; background: var(--dark); color: white;" data-i18n="export_csv">Export CSV</button>
              <button id="refresh-dashboard-btn" class="secondary-btn" style="width: auto; padding: 8px 16px; background: transparent; border: none; color: var(--primary);" data-i18n="refresh">Refresh</button>
         </div>
 
@@ -139,6 +140,10 @@
           <div class="kpi-card">
             <div class="kpi-title" data-i18n="avg_order_value">Avg. Order Value</div>
             <div class="kpi-value" id="kpi-avg">$0.00</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-title" data-i18n="total_vat">Total VAT</div>
+            <div class="kpi-value" id="kpi-vat">$0.00</div>
           </div>
         </div>
 
@@ -310,7 +315,12 @@
             <input type="text" id="store-name" class="custom-input" data-i18n-placeholder="store_name" placeholder="Store Name">
             <input type="text" id="tax-number" class="custom-input" data-i18n-placeholder="tax_number" placeholder="Tax Number">
             <input type="password" id="admin-pin-setting" class="custom-input" data-i18n-placeholder="admin_pin" placeholder="Admin PIN (Default: 0000)">
-            <button id="save-settings-btn" class="custom-btn" style="background: var(--dark);" data-i18n="save">Save</button>
+
+            <h4 style="margin-top: 20px; color: var(--dark);" data-i18n="sync_settings">Local Server Sync</h4>
+            <p style="font-size: 12px; color: var(--gray-text);" data-i18n="sync_desc">Enter the IP or URL of the central server to sync orders in the background (e.g. http://192.168.1.100:3000)</p>
+            <input type="text" id="sync-server-url" class="custom-input" placeholder="http://192.168.1.x:port">
+
+            <button id="save-settings-btn" class="custom-btn" style="background: var(--dark); margin-top: 15px;" data-i18n="save">Save</button>
           </div>
 
           <div class="chart-card">
@@ -401,6 +411,7 @@
                 <tr style="border-bottom: 2px solid var(--gray-bg); color: var(--gray-text);">
                   <th style="padding: 16px;" data-i18n="name_placeholder">Name</th>
                   <th style="padding: 16px;" data-i18n="phone_placeholder">Phone Number</th>
+                  <th style="padding: 16px;" data-i18n="total_deliveries">Deliveries (Pending)</th>
                   <th style="padding: 16px;" data-i18n="actions">Actions</th>
                 </tr>
               </thead>
@@ -434,6 +445,19 @@
           </table>
         </div>
       </div>
+
+    <!-- Return Options Modal -->
+    <div id="return-options-modal" class="modal" style="display:none; z-index: 2000;">
+      <div class="modal-content" style="max-width: 400px; text-align: center;">
+        <h2 data-i18n="return_order">Return Order</h2>
+        <p data-i18n="return_order_prompt">How would you like to process this return?</p>
+        <input type="hidden" id="return-order-id">
+        <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
+          <button id="full-return-btn" class="custom-btn" style="background: var(--primary); color: white;" data-i18n="full_refund">Full Refund (Return Items to Stock)</button>
+          <button id="cancel-return-btn" class="custom-btn" style="background: var(--gray-border); color: var(--dark);" data-i18n="cancel">Cancel</button>
+        </div>
+      </div>
+    </div>
 
       <!-- Customer Orders Modal -->
       <div id="customer-orders-modal" class="modal" style="display:none; z-index: 2000;">
