@@ -67,6 +67,7 @@
             <h1 data-i18n="app_title">Restaurant POS</h1>
             <div class="top-controls">
               <input type="text" id="search-input" data-i18n-placeholder="search_items" placeholder="Search items..." class="custom-input" style="margin-bottom: 0; width: 250px;">
+              <button id="close-shift-btn" class="custom-btn" style="background: var(--dark); margin: 0; width: auto;" data-i18n="close_shift">Close Shift</button>
               <button class="lang-btn" onclick="window.setLanguage('en')">EN</button>
               <button class="lang-btn" onclick="window.setLanguage('ar')">AR</button>
             </div>
@@ -384,6 +385,33 @@
           <button id="submit-pin-btn" class="custom-btn" style="background: var(--primary); color: white;" data-i18n="save">Enter</button>
         </div>
       </div>
+    </div>
+
+    <!-- Shift Open Modal -->
+    <div id="open-shift-modal" class="modal" style="display:none; z-index: 3000;">
+      <div class="modal-content" style="max-width: 400px; text-align: center;">
+        <h2 data-i18n="open_shift">Open Shift</h2>
+        <input type="text" id="shift-cashier-name" class="custom-input" data-i18n-placeholder="cashier_name" placeholder="Cashier Name">
+        <input type="number" id="shift-starting-cash" class="custom-input" data-i18n-placeholder="starting_cash" placeholder="Starting Cash in Drawer ($)">
+        <button id="submit-open-shift-btn" class="custom-btn" style="background: var(--primary); color: white; margin-top: 15px;" data-i18n="start_shift">Start Shift</button>
+      </div>
+    </div>
+
+    <!-- Shift Close Modal -->
+    <div id="close-shift-modal" class="modal" style="display:none; z-index: 3000;">
+      <div class="modal-content" style="max-width: 400px; text-align: center;">
+        <h2 data-i18n="close_shift">Close Shift</h2>
+        <input type="number" id="shift-actual-cash" class="custom-input" data-i18n-placeholder="actual_cash" placeholder="Actual Cash in Drawer ($)">
+        <div style="display: flex; gap: 10px; margin-top: 15px;">
+          <button id="cancel-close-shift-btn" class="custom-btn" style="background: var(--gray-border); color: var(--dark);" data-i18n="cancel">Cancel</button>
+          <button id="submit-close-shift-btn" class="custom-btn" style="background: var(--primary); color: white;" data-i18n="confirm_close">Confirm & Print Z-Report</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Z-Report Print Container -->
+    <div id="z-report-container" style="display: none;">
+      <!-- Populated via JS -->
     </div>
 
     <!-- Payment Modal -->

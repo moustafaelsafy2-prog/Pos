@@ -116,6 +116,22 @@ ipcMain.handle('db-verify-pin', async (event, pin) => {
     return await dbManager.verifyPin(pin);
 });
 
+ipcMain.handle('db-open-shift', async (event, name, cash) => {
+    return await dbManager.openShift(name, cash);
+});
+
+ipcMain.handle('db-get-shift', async () => {
+    return await dbManager.getCurrentShift();
+});
+
+ipcMain.handle('db-close-shift', async (event, actualCash, shiftId) => {
+    return await dbManager.closeShift(actualCash, shiftId);
+});
+
+ipcMain.handle('db-get-z-report', async (event, shiftId) => {
+    return await dbManager.getZReport(shiftId);
+});
+
 ipcMain.handle('check-license', async () => {
     return await dbManager.checkLicense();
 });

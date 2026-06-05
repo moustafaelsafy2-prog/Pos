@@ -568,10 +568,11 @@ body {
     body * {
         visibility: hidden;
     }
-    #receipt-container, #receipt-container * {
+    #receipt-container, #receipt-container *,
+    #z-report-container, #z-report-container * {
         visibility: visible;
     }
-    #receipt-container {
+    #receipt-container, #z-report-container {
         display: block !important;
         position: absolute;
         left: 0;

@@ -4,9 +4,19 @@ let allItems = [];
 let currentDiscount = 0;
 let currentSearchTerm = '';
 let currentCategoryId = null;
+let currentShiftId = null;
 
 async function initPOS() {
     try {
+        // Check Shift Status first
+        const shift = await window.api.getCurrentShift();
+        if (shift) {
+            currentShiftId = shift.id;
+        } else {
+            // Block UI with Open Shift Modal
+            document.getElementById('open-shift-modal').style.display = 'flex';
+        }
+
         categories = await window.api.getCategories();
         allItems = await window.api.getItems();
 
@@ -357,7 +367,7 @@ document.getElementById('confirm-payment-btn').addEventListener('click', async (
     }
 
     try {
-        const result = await window.api.submitOrder(cart, orderType, customerId, currentPaymentMethod, currentDiscount);
+        const result = await window.api.submitOrder(cart, orderType, customerId, currentPaymentMethod, currentDiscount, currentShiftId);
 
         // Print Receipt
         printReceipt(result.orderId, cart, orderType, result.subtotal, currentDiscount, result.taxAmount, result.total, currentPaymentMethod);
@@ -428,6 +438,98 @@ async function printReceipt(orderId, orderCart, type, subtotal, discount, tax, t
         window.print();
     } catch (e) {
         console.error("Failed to print receipt", e);
+    }
+}
+
+// Shift Management Logic
+document.getElementById('submit-open-shift-btn').addEventListener('click', async () => {
+    const name = document.getElementById('shift-cashier-name').value.trim();
+    const startingCash = parseFloat(document.getElementById('shift-starting-cash').value);
+
+    if (!name || isNaN(startingCash)) return alert(window.t('fill_all_fields'));
+
+    try {
+        const shift = await window.api.openShift(name, startingCash);
+        currentShiftId = shift.id;
+        document.getElementById('open-shift-modal').style.display = 'none';
+    } catch (e) {
+        console.error("Failed to open shift", e);
+    }
+});
+
+document.getElementById('close-shift-btn').addEventListener('click', () => {
+    document.getElementById('close-shift-modal').style.display = 'flex';
+});
+
+document.getElementById('cancel-close-shift-btn').addEventListener('click', () => {
+    document.getElementById('close-shift-modal').style.display = 'none';
+});
+
+document.getElementById('submit-close-shift-btn').addEventListener('click', async () => {
+    const actualCash = parseFloat(document.getElementById('shift-actual-cash').value);
+    if (isNaN(actualCash)) return alert(window.t('fill_all_fields'));
+
+    try {
+        const result = await window.api.closeShift(actualCash, currentShiftId);
+        document.getElementById('close-shift-modal').style.display = 'none';
+
+        await printZReport(currentShiftId, result.expected_cash, result.actual_cash);
+
+        currentShiftId = null;
+        document.getElementById('shift-cashier-name').value = '';
+        document.getElementById('shift-starting-cash').value = '';
+        document.getElementById('shift-actual-cash').value = '';
+        document.getElementById('open-shift-modal').style.display = 'flex';
+
+    } catch (e) {
+        console.error("Failed to close shift", e);
+    }
+});
+
+async function printZReport(shiftId, expected, actual) {
+    try {
+        const report = await window.api.getZReport(shiftId);
+        const settings = await window.api.getSettings();
+        const storeName = settings ? settings.store_name : "My Restaurant";
+
+        let salesHtml = '';
+        report.sales.forEach(s => {
+            salesHtml += `<div class="receipt-line-item"><span>${s.payment_method}:</span><span>$${s.total.toFixed(2)}</span></div>`;
+        });
+
+        const diff = actual - expected;
+        const diffText = diff === 0 ? 'Perfect' : (diff > 0 ? `Over (+$${diff.toFixed(2)})` : `Short (-$${Math.abs(diff).toFixed(2)})`);
+
+        const container = document.getElementById('z-report-container');
+        container.innerHTML = `
+            <div class="receipt-header">
+                <h2>${storeName}</h2>
+                <div>Z-REPORT (EOD)</div>
+                <div>Shift #${shiftId}</div>
+                <div>Cashier: ${report.shift.cashier_name}</div>
+                <div>End: ${new Date().toLocaleString()}</div>
+            </div>
+            <div class="receipt-divider"></div>
+            <h3 style="margin: 5px 0;">Sales Summary</h3>
+            ${salesHtml}
+            <div class="receipt-divider"></div>
+            <h3 style="margin: 5px 0;">Cash Drawer</h3>
+            <div class="receipt-line-item"><span>Starting Cash:</span><span>$${report.shift.starting_cash.toFixed(2)}</span></div>
+            <div class="receipt-line-item"><span>Expected Cash:</span><span>$${expected.toFixed(2)}</span></div>
+            <div class="receipt-line-item"><span>Actual Cash:</span><span>$${actual.toFixed(2)}</span></div>
+            <div class="receipt-divider"></div>
+            <div class="receipt-line-item" style="font-weight: bold;"><span>Discrepancy:</span><span>${diffText}</span></div>
+            <div style="text-align: center; margin-top: 20px;">Manager Signature</div>
+            <div style="border-bottom: 1px solid #000; margin: 20px 20px 0 20px;"></div>
+        `;
+
+        // Hide receipt container if it exists, show z-report
+        document.getElementById('receipt-container').style.display = 'none';
+        document.getElementById('z-report-container').style.display = 'block';
+        window.print();
+        document.getElementById('z-report-container').style.display = 'none';
+    } catch (e) {
+        console.error(e);
     }
 }
 

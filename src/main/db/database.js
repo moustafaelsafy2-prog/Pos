@@ -23,7 +23,8 @@ function setupSchema() {
         db.run(`CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)`);
         db.run(`CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, category_id INTEGER, name TEXT NOT NULL, price REAL NOT NULL, image_url TEXT, FOREIGN KEY (category_id) REFERENCES categories (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT UNIQUE, address TEXT)`);
-        db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_id INTEGER, order_type TEXT DEFAULT 'Dine-in', subtotal REAL DEFAULT 0, tax_amount REAL DEFAULT 0, discount REAL DEFAULT 0, total_amount REAL NOT NULL, payment_method TEXT DEFAULT 'Cash', order_date DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'preparing', FOREIGN KEY (customer_id) REFERENCES customers (id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS shifts (id INTEGER PRIMARY KEY AUTOINCREMENT, cashier_name TEXT NOT NULL, start_time DATETIME DEFAULT CURRENT_TIMESTAMP, end_time DATETIME, starting_cash REAL DEFAULT 0, expected_cash REAL DEFAULT 0, actual_cash REAL DEFAULT 0, status TEXT DEFAULT 'open')`);
+        db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, shift_id INTEGER, customer_id INTEGER, order_type TEXT DEFAULT 'Dine-in', subtotal REAL DEFAULT 0, tax_amount REAL DEFAULT 0, discount REAL DEFAULT 0, total_amount REAL NOT NULL, payment_method TEXT DEFAULT 'Cash', order_date DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'preparing', FOREIGN KEY (customer_id) REFERENCES customers (id), FOREIGN KEY (shift_id) REFERENCES shifts (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, item_id INTEGER, quantity INTEGER NOT NULL, subtotal REAL NOT NULL, notes TEXT, FOREIGN KEY (order_id) REFERENCES orders (id), FOREIGN KEY (item_id) REFERENCES items (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS license (id INTEGER PRIMARY KEY AUTOINCREMENT, serial_key TEXT, activated_at DATETIME, expires_at DATETIME, machine_id TEXT)`);
 
@@ -281,6 +282,60 @@ function getInventory() {
     });
 }
 
+function openShift(cashierName, startingCash) {
+    return new Promise((resolve, reject) => {
+        db.run(`INSERT INTO shifts (cashier_name, starting_cash, status) VALUES (?, ?, 'open')`,
+        [cashierName, startingCash], function(err) {
+            if (err) reject(err); else resolve({ id: this.lastID, cashier_name: cashierName, starting_cash: startingCash });
+        });
+    });
+}
+
+function getCurrentShift() {
+    return new Promise((resolve, reject) => {
+        db.get(`SELECT * FROM shifts WHERE status = 'open' ORDER BY id DESC LIMIT 1`, [], (err, row) => {
+            if (err) reject(err); else resolve(row || null);
+        });
+    });
+}
+
+function closeShift(actualCash, shiftId) {
+    return new Promise((resolve, reject) => {
+        // Calculate expected cash: starting_cash + sum of Cash orders for this shift
+        db.get(`
+            SELECT s.starting_cash,
+                   COALESCE((SELECT SUM(total_amount) FROM orders WHERE shift_id = s.id AND payment_method = 'Cash'), 0) as cash_sales
+            FROM shifts s WHERE s.id = ?
+        `, [shiftId], (err, row) => {
+            if (err) return reject(err);
+            if (!row) return reject(new Error("Shift not found"));
+
+            const expectedCash = row.starting_cash + row.cash_sales;
+
+            db.run(`UPDATE shifts SET end_time = CURRENT_TIMESTAMP, expected_cash = ?, actual_cash = ?, status = 'closed' WHERE id = ?`,
+            [expectedCash, actualCash, shiftId], function(err) {
+                if (err) reject(err); else resolve({ expected_cash: expectedCash, actual_cash: actualCash });
+            });
+        });
+    });
+}
+
+function getZReport(shiftId) {
+    return new Promise((resolve, reject) => {
+        const report = {};
+        db.get(`SELECT * FROM shifts WHERE id = ?`, [shiftId], (err, shift) => {
+            if (err || !shift) return reject(err || new Error("Shift not found"));
+            report.shift = shift;
+
+            db.all(`SELECT payment_method, COUNT(id) as count, SUM(total_amount) as total FROM orders WHERE shift_id = ? GROUP BY payment_method`, [shiftId], (err, rows) => {
+                if (err) return reject(err);
+                report.sales = rows;
+                resolve(report);
+            });
+        });
+    });
+}
+
 function getDashboardStats(startDate = null, endDate = null) {
     return new Promise((resolve, reject) => {
         const stats = {};
@@ -347,7 +402,7 @@ function getDashboardStats(startDate = null, endDate = null) {
     });
 }
 
-function submitOrder(cart, orderType, customerId, paymentMethod, discount) {
+function submitOrder(cart, orderType, customerId, paymentMethod, discount, shiftId) {
     return new Promise((resolve, reject) => {
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
         const taxRate = 0.15; // 15% VAT
@@ -357,8 +412,8 @@ function submitOrder(cart, orderType, customerId, paymentMethod, discount) {
         db.run('BEGIN TRANSACTION', (err) => {
             if (err) return reject(err);
 
-            db.run(`INSERT INTO orders (subtotal, tax_amount, discount, total_amount, order_type, customer_id, payment_method) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [subtotal, taxAmount, discount, total, orderType || 'Dine-in', customerId || null, paymentMethod || 'Cash'], function(err) {
+            db.run(`INSERT INTO orders (shift_id, subtotal, tax_amount, discount, total_amount, order_type, customer_id, payment_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [shiftId || null, subtotal, taxAmount, discount, total, orderType || 'Dine-in', customerId || null, paymentMethod || 'Cash'], function(err) {
                 if (err) {
                     return db.run('ROLLBACK', () => reject(err));
                 }
@@ -494,5 +549,9 @@ module.exports = {
     updateMenuItem,
     getSettings,
     saveSettings,
-    verifyPin
+    verifyPin,
+    openShift,
+    getCurrentShift,
+    closeShift,
+    getZReport
 };

@@ -22,6 +22,10 @@ contextBridge.exposeInMainWorld('api', {
     getSettings: () => ipcRenderer.invoke('db-get-settings'),
     saveSettings: (storeName, taxNumber, pin) => ipcRenderer.invoke('db-save-settings', storeName, taxNumber, pin),
     verifyPin: (pin) => ipcRenderer.invoke('db-verify-pin', pin),
+    openShift: (name, cash) => ipcRenderer.invoke('db-open-shift', name, cash),
+    getCurrentShift: () => ipcRenderer.invoke('db-get-shift'),
+    closeShift: (actualCash, shiftId) => ipcRenderer.invoke('db-close-shift', actualCash, shiftId),
+    getZReport: (shiftId) => ipcRenderer.invoke('db-get-z-report', shiftId),
     checkLicense: () => ipcRenderer.invoke('check-license'),
     activateLicense: (key) => ipcRenderer.invoke('activate-license', key)
 });

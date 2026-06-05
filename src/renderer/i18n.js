@@ -135,7 +135,14 @@ const translations = {
         nav_kds: "شاشة المطبخ",
         ready: "جاهز",
         filter: "تصفية",
-        clear_filter: "مسح الفلتر"
+        clear_filter: "مسح الفلتر",
+        open_shift: "فتح وردية",
+        cashier_name: "اسم الكاشير",
+        starting_cash: "النقدية في الدرج بداية الوردية",
+        start_shift: "بدء الوردية",
+        close_shift: "إغلاق الوردية",
+        actual_cash: "النقدية الفعلية في الدرج الآن",
+        confirm_close: "تأكيد وطباعة تقرير Z"
     }
 };
 
@@ -209,6 +216,13 @@ translations.en.nav_kds = "Kitchen";
 translations.en.ready = "Ready";
 translations.en.filter = "Filter";
 translations.en.clear_filter = "Clear";
+translations.en.open_shift = "Open Shift";
+translations.en.cashier_name = "Cashier Name";
+translations.en.starting_cash = "Starting Cash in Drawer";
+translations.en.start_shift = "Start Shift";
+translations.en.close_shift = "Close Shift";
+translations.en.actual_cash = "Actual Cash in Drawer";
+translations.en.confirm_close = "Confirm & Print Z-Report";
 
 let currentLang = 'en';
 
