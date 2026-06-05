@@ -133,7 +133,9 @@ const translations = {
         date: "التاريخ",
         close: "إغلاق",
         nav_kds: "شاشة المطبخ",
-        ready: "جاهز"
+        ready: "جاهز",
+        filter: "تصفية",
+        clear_filter: "مسح الفلتر"
     }
 };
 
@@ -205,6 +207,8 @@ translations.en.date = "Date";
 translations.en.close = "Close";
 translations.en.nav_kds = "Kitchen";
 translations.en.ready = "Ready";
+translations.en.filter = "Filter";
+translations.en.clear_filter = "Clear";
 
 let currentLang = 'en';
 

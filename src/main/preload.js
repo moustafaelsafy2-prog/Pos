@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld('api', {
     getPendingOrders: () => ipcRenderer.invoke('db-get-pending-orders'),
     markOrderReady: (orderId) => ipcRenderer.invoke('db-mark-order-ready', orderId),
     saveCustomer: (customer) => ipcRenderer.invoke('db-save-customer', customer),
-    getDashboardStats: () => ipcRenderer.invoke('db-get-dashboard-stats'),
+    getDashboardStats: (startDate, endDate) => ipcRenderer.invoke('db-get-dashboard-stats', startDate, endDate),
     getInventory: () => ipcRenderer.invoke('db-get-inventory'),
     addInventoryItem: (name, unit, stock, thresh) => ipcRenderer.invoke('db-add-inventory', name, unit, stock, thresh),
     addMenuItem: (catId, name, price, img) => ipcRenderer.invoke('db-add-menu-item', catId, name, price, img),

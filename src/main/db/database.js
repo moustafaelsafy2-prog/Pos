@@ -281,27 +281,44 @@ function getInventory() {
     });
 }
 
-function getDashboardStats() {
+function getDashboardStats(startDate = null, endDate = null) {
     return new Promise((resolve, reject) => {
         const stats = {};
 
-        // Use Promise.all to run all stats queries in parallel
+        let dateFilterOrders = "";
+        let dateFilterOrderItems = "";
+        const queryParams = [];
+
+        if (startDate && endDate) {
+            // Append time so end date includes the whole day
+            const start = startDate + " 00:00:00";
+            const end = endDate + " 23:59:59";
+
+            dateFilterOrders = " WHERE order_date >= ? AND order_date <= ? ";
+            // Need a separate logic for order_items since order_date is on orders table
+            dateFilterOrderItems = " JOIN orders o ON oi.order_id = o.id WHERE o.order_date >= ? AND o.order_date <= ? ";
+            queryParams.push(start, end);
+        } else {
+            // Fallback for order_items query if no date filter is applied to keep joins consistent
+            dateFilterOrderItems = " JOIN orders o ON oi.order_id = o.id ";
+        }
+
         Promise.all([
             // 1. Total Revenue & Order Count
             new Promise((res, rej) => {
-                db.get("SELECT COUNT(id) as totalOrders, SUM(total_amount) as totalRevenue FROM orders", [], (err, row) => {
+                db.get(`SELECT COUNT(id) as totalOrders, SUM(total_amount) as totalRevenue FROM orders ${dateFilterOrders}`, queryParams, (err, row) => {
                     if (err) rej(err); else res(row);
                 });
             }),
             // 2. Sales by Order Type
             new Promise((res, rej) => {
-                db.all("SELECT order_type, COUNT(id) as count FROM orders GROUP BY order_type", [], (err, rows) => {
+                db.all(`SELECT order_type, COUNT(id) as count FROM orders ${dateFilterOrders} GROUP BY order_type`, queryParams, (err, rows) => {
                     if (err) rej(err); else res(rows);
                 });
             }),
             // 3. Sales by Payment Method
             new Promise((res, rej) => {
-                db.all("SELECT payment_method, SUM(total_amount) as total FROM orders GROUP BY payment_method", [], (err, rows) => {
+                db.all(`SELECT payment_method, SUM(total_amount) as total FROM orders ${dateFilterOrders} GROUP BY payment_method`, queryParams, (err, rows) => {
                     if (err) rej(err); else res(rows);
                 });
             }),
@@ -311,11 +328,12 @@ function getDashboardStats() {
                     SELECT i.name, SUM(oi.quantity) as total_sold
                     FROM order_items oi
                     JOIN items i ON oi.item_id = i.id
+                    ${dateFilterOrderItems}
                     GROUP BY oi.item_id
                     ORDER BY total_sold DESC
                     LIMIT 5
                 `;
-                db.all(query, [], (err, rows) => {
+                db.all(query, startDate && endDate ? queryParams : [], (err, rows) => {
                     if (err) rej(err); else res(rows);
                 });
             })

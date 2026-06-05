@@ -85,9 +85,12 @@ document.getElementById('submit-pin-btn').addEventListener('click', async () => 
     }
 });
 
+let currentStartDate = null;
+let currentEndDate = null;
+
 async function loadDashboardData() {
     try {
-        const stats = await window.api.getDashboardStats();
+        const stats = await window.api.getDashboardStats(currentStartDate, currentEndDate);
 
         // Populate KPIs
         const totalRev = stats.overview.totalRevenue || 0;
@@ -187,5 +190,28 @@ function renderCharts(byType, byPayment) {
         }
     });
 }
+
+document.getElementById('filter-dashboard-btn').addEventListener('click', () => {
+    const start = document.getElementById('dash-start-date').value;
+    const end = document.getElementById('dash-end-date').value;
+
+    if (start && end) {
+        currentStartDate = start;
+        currentEndDate = end;
+        document.getElementById('clear-filter-btn').style.display = 'block';
+        loadDashboardData();
+    } else {
+        alert("Please select both start and end dates");
+    }
+});
+
+document.getElementById('clear-filter-btn').addEventListener('click', () => {
+    document.getElementById('dash-start-date').value = '';
+    document.getElementById('dash-end-date').value = '';
+    currentStartDate = null;
+    currentEndDate = null;
+    document.getElementById('clear-filter-btn').style.display = 'none';
+    loadDashboardData();
+});
 
 document.getElementById('refresh-dashboard-btn').addEventListener('click', loadDashboardData);

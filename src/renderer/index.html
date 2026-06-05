@@ -85,9 +85,18 @@
 
       <!-- Main Dashboard Content -->
       <div id="main-dashboard" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: var(--gray-bg); padding: 40px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
           <h1 data-i18n="nav_dashboard" style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">Dashboard</h1>
-          <button id="refresh-dashboard-btn" class="secondary-btn" style="width: auto; padding: 10px 24px;" data-i18n="refresh">Refresh</button>
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <input type="date" id="dash-start-date" class="custom-input" style="margin-bottom: 0; padding: 8px 12px;">
+            <span style="color: var(--gray-text);">-</span>
+            <input type="date" id="dash-end-date" class="custom-input" style="margin-bottom: 0; padding: 8px 12px;">
+            <button id="filter-dashboard-btn" class="secondary-btn" style="width: auto; padding: 8px 16px; margin: 0;" data-i18n="filter">Filter</button>
+            <button id="clear-filter-btn" class="secondary-btn" style="width: auto; padding: 8px 16px; margin: 0; display: none;" data-i18n="clear_filter">Clear</button>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 30px;">
+             <button id="refresh-dashboard-btn" class="secondary-btn" style="width: auto; padding: 8px 16px; background: transparent; border: none; color: var(--primary);" data-i18n="refresh">Refresh</button>
         </div>
 
         <!-- KPI Cards -->
