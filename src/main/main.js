@@ -187,3 +187,17 @@ ipcMain.handle('check-license', async () => {
 ipcMain.handle('activate-license', async (event, key) => {
     return await dbManager.activateLicense(key);
 });
+
+ipcMain.handle('db-verify-master-password', async (event, password) => {
+    return await dbManager.verifyMasterPassword(password);
+});
+
+ipcMain.handle('db-generate-license', async (event, days) => {
+    return await dbManager.generateLicenseToken(days);
+});
+
+// Helper to easily grab the machine ID for the front end generator
+ipcMain.handle('get-machine-id', async () => {
+    const { machineIdSync } = require('node-machine-id');
+    return machineIdSync();
+});

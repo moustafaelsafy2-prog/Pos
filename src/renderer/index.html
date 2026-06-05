@@ -536,6 +536,44 @@
       </div>
     </div>
 
+    <!-- Super Admin Hidden Panel -->
+    <div id="super-admin-modal" class="modal" style="display:none; z-index: 9999;">
+      <div class="modal-content" style="max-width: 500px; text-align: left;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--gray-border); padding-bottom: 16px; margin-bottom: 24px;">
+          <h2 style="margin: 0; color: var(--primary);">System Licensing Panel</h2>
+          <button id="close-super-admin-btn" class="custom-btn" style="width: auto; margin: 0; background: var(--gray-bg); color: var(--dark); padding: 8px 16px;">Close</button>
+        </div>
+
+        <div id="super-admin-auth-step">
+          <p style="color: var(--gray-text); margin-bottom: 16px;">Enter Master Password to access the keygen.</p>
+          <input type="password" id="master-password-input" class="custom-input" placeholder="Master Password">
+          <button id="verify-master-btn" class="custom-btn" style="background: var(--dark); color: white; margin-top: 8px;">Verify</button>
+        </div>
+
+        <div id="super-admin-keygen-step" style="display: none;">
+          <p style="color: var(--gray-text); font-size: 13px; margin-bottom: 24px;">Generate a secure JSON Web Token (JWT) linked to this machine's ID to unlock the application.</p>
+
+          <label style="font-weight: 600; font-size: 14px; margin-bottom: 8px; display: block;">Hardware ID (Auto-detected)</label>
+          <input type="text" id="machine-id-display" class="custom-input" readonly style="background: var(--gray-bg); color: var(--gray-text); font-family: monospace;">
+
+          <label style="font-weight: 600; font-size: 14px; margin-bottom: 8px; margin-top: 16px; display: block;">Subscription Duration</label>
+          <select id="license-days-input" class="custom-input">
+            <option value="30">30 Days (Monthly)</option>
+            <option value="365">365 Days (Yearly)</option>
+            <option value="3650">3650 Days (Lifetime/10 Yrs)</option>
+          </select>
+
+          <button id="generate-license-btn" class="custom-btn" style="background: var(--secondary); color: white; margin-top: 24px;">Generate License Key</button>
+
+          <div id="generated-key-container" style="display: none; margin-top: 24px;">
+            <label style="font-weight: 600; font-size: 14px; margin-bottom: 8px; display: block; color: var(--primary);">Generated License Key</label>
+            <textarea id="generated-key-display" class="custom-input" rows="4" readonly style="font-family: monospace; font-size: 12px; resize: none;"></textarea>
+            <p style="font-size: 12px; color: var(--gray-text);">Copy this key and paste it into the License Activation screen.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Shift Close Modal -->
     <div id="close-shift-modal" class="modal" style="display:none; z-index: 3000;">
       <div class="modal-content" style="max-width: 400px; text-align: center;">

@@ -50,3 +50,52 @@ document.addEventListener('DOMContentLoaded', () => {
     window.setLanguage('ar'); // Set to Arabic as requested by user's preference
     checkLicense();
 });
+
+// Super Admin Hidden Shortcut (Ctrl + Shift + L)
+document.addEventListener('keydown', async (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key === 'L') {
+        document.getElementById('super-admin-modal').style.display = 'flex';
+        document.getElementById('master-password-input').value = '';
+        document.getElementById('super-admin-auth-step').style.display = 'block';
+        document.getElementById('super-admin-keygen-step').style.display = 'none';
+
+        // Fetch machine ID for display
+        try {
+            const machineId = await window.api.getMachineId();
+            document.getElementById('machine-id-display').value = machineId;
+        } catch (err) {
+            console.error(err);
+        }
+    }
+});
+
+document.getElementById('close-super-admin-btn').addEventListener('click', () => {
+    document.getElementById('super-admin-modal').style.display = 'none';
+});
+
+document.getElementById('verify-master-btn').addEventListener('click', async () => {
+    const pwd = document.getElementById('master-password-input').value;
+    try {
+        const isValid = await window.api.verifyMasterPassword(pwd);
+        if (isValid) {
+            document.getElementById('super-admin-auth-step').style.display = 'none';
+            document.getElementById('super-admin-keygen-step').style.display = 'block';
+        } else {
+            alert("Incorrect Master Password");
+        }
+    } catch (e) {
+        console.error(e);
+    }
+});
+
+document.getElementById('generate-license-btn').addEventListener('click', async () => {
+    const days = document.getElementById('license-days-input').value;
+    try {
+        const token = await window.api.generateLicense(days);
+        document.getElementById('generated-key-container').style.display = 'block';
+        document.getElementById('generated-key-display').value = token;
+    } catch (e) {
+        console.error(e);
+        alert("Failed to generate license token");
+    }
+});

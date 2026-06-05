@@ -1,10 +1,15 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const { machineIdSync } = require('node-machine-id');
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 
 let db;
 
-const VALID_KEY = "1234-ABCD-5678-EFGH"; // Mock valid key for demo
+// Secret key for JWT signing. In a real production app, this should be obfuscated or fetched securely.
+// For this standalone desktop app, it acts as the master signing key.
+const JWT_SECRET = "restaurant_pos_super_secret_master_key_2023";
+const MASTER_PASSWORD_HASH = bcrypt.hashSync("admin12345", 8); // Default master password: admin12345
 
 function initDb(userDataPath) {
     const dbPath = path.join(userDataPath, 'pos_database.sqlite');
@@ -81,7 +86,8 @@ function setupSchema() {
         // Seed Default Admin
         db.get('SELECT COUNT(*) AS count FROM users', [], (err, row) => {
             if (!err && row.count === 0) {
-                db.run(`INSERT INTO users (name, pin, role) VALUES ('Admin', '0000', 'admin')`);
+                const hashedPin = bcrypt.hashSync('0000', 8);
+                db.run(`INSERT INTO users (name, pin, role) VALUES ('Admin', ?, 'admin')`, [hashedPin]);
             }
         });
     });
@@ -263,9 +269,12 @@ function saveSettings(storeName, taxNumber) {
 
 function loginUser(pin) {
     return new Promise((resolve, reject) => {
-        db.get("SELECT * FROM users WHERE pin = ?", [pin], (err, row) => {
-            if (err) reject(err);
-            else resolve(row || null); // Return user object or null if invalid
+        db.all("SELECT * FROM users", [], (err, rows) => {
+            if (err) return reject(err);
+
+            // Compare entered pin against all hashed pins
+            const user = rows.find(row => bcrypt.compareSync(pin, row.pin));
+            resolve(user || null);
         });
     });
 }
@@ -281,9 +290,32 @@ function getUsers() {
 
 function addUser(name, pin, role) {
     return new Promise((resolve, reject) => {
-        db.run(`INSERT INTO users (name, pin, role) VALUES (?, ?, ?)`, [name, pin, role], function(err) {
+        const hashedPin = bcrypt.hashSync(pin, 8);
+        db.run(`INSERT INTO users (name, pin, role) VALUES (?, ?, ?)`, [name, hashedPin, role], function(err) {
             if (err) reject(err); else resolve(this.lastID);
         });
+    });
+}
+
+function verifyMasterPassword(password) {
+    return new Promise((resolve) => {
+        resolve(bcrypt.compareSync(password, MASTER_PASSWORD_HASH));
+    });
+}
+
+function generateLicenseToken(days) {
+    return new Promise((resolve) => {
+        const machineId = machineIdSync();
+        const expirationDate = new Date();
+        expirationDate.setDate(expirationDate.getDate() + parseInt(days));
+
+        const payload = {
+            machineId: machineId,
+            expiresAt: expirationDate.toISOString()
+        };
+
+        const token = jwt.sign(payload, JWT_SECRET);
+        resolve(token);
     });
 }
 
@@ -606,30 +638,55 @@ function checkLicense() {
         const currentMachineId = machineIdSync();
         db.get(`SELECT * FROM license WHERE machine_id = ? ORDER BY id DESC LIMIT 1`, [currentMachineId], (err, row) => {
             if (err) return reject(err);
-            if (row && new Date(row.expires_at) > new Date()) {
-                resolve({ valid: true });
-            } else {
+
+            if (!row) return resolve({ valid: false });
+
+            try {
+                // Verify the JWT stored in the database
+                const decoded = jwt.verify(row.serial_key, JWT_SECRET);
+
+                // Ensure the token was generated for THIS specific machine
+                if (decoded.machineId !== currentMachineId) {
+                    return resolve({ valid: false });
+                }
+
+                // Check expiration
+                if (new Date(decoded.expiresAt) > new Date()) {
+                    resolve({ valid: true });
+                } else {
+                    resolve({ valid: false });
+                }
+            } catch (error) {
+                // Token is invalid, tampered with, or expired
                 resolve({ valid: false });
             }
         });
     });
 }
 
-function activateLicense(key) {
+function activateLicense(token) {
     return new Promise((resolve, reject) => {
-        if (key === VALID_KEY) {
+        try {
             const currentMachineId = machineIdSync();
+            const decoded = jwt.verify(token, JWT_SECRET);
+
+            if (decoded.machineId !== currentMachineId) {
+                return resolve({ success: false, message: "License key is not valid for this machine." });
+            }
+
+            if (new Date(decoded.expiresAt) <= new Date()) {
+                return resolve({ success: false, message: "License key has already expired." });
+            }
+
             const now = new Date();
-            const expiresAt = new Date();
-            expiresAt.setFullYear(expiresAt.getFullYear() + 1); // 1 year license
 
             db.run(`INSERT INTO license (serial_key, activated_at, expires_at, machine_id) VALUES (?, ?, ?, ?)`,
-            [key, now.toISOString(), expiresAt.toISOString(), currentMachineId], function(err) {
+            [token, now.toISOString(), decoded.expiresAt, currentMachineId], function(err) {
                 if (err) return reject(err);
-                resolve({ success: true, message: "Activation Successful! Valid for 1 year." });
+                resolve({ success: true, message: "Activation Successful!" });
             });
-        } else {
-            resolve({ success: false, message: "Invalid Serial Key." });
+        } catch (error) {
+            resolve({ success: false, message: "Invalid or Corrupted Serial Key." });
         }
     });
 }
@@ -674,5 +731,7 @@ module.exports = {
     openShift,
     getCurrentShift,
     closeShift,
-    getZReport
+    getZReport,
+    verifyMasterPassword,
+    generateLicenseToken
 };

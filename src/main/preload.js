@@ -39,5 +39,8 @@ contextBridge.exposeInMainWorld('api', {
     closeShift: (actualCash, shiftId) => ipcRenderer.invoke('db-close-shift', actualCash, shiftId),
     getZReport: (shiftId) => ipcRenderer.invoke('db-get-z-report', shiftId),
     checkLicense: () => ipcRenderer.invoke('check-license'),
-    activateLicense: (key) => ipcRenderer.invoke('activate-license', key)
+    activateLicense: (key) => ipcRenderer.invoke('activate-license', key),
+    verifyMasterPassword: (password) => ipcRenderer.invoke('db-verify-master-password', password),
+    generateLicense: (days) => ipcRenderer.invoke('db-generate-license', days),
+    getMachineId: () => ipcRenderer.invoke('get-machine-id')
 });
