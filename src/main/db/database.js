@@ -32,8 +32,9 @@ function setupSchema() {
         db.run(`CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, unit TEXT NOT NULL, current_stock REAL DEFAULT 0, low_stock_threshold REAL DEFAULT 10)`);
         db.run(`CREATE TABLE IF NOT EXISTS recipes (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, inventory_id INTEGER, quantity_required REAL NOT NULL, FOREIGN KEY (item_id) REFERENCES items (id), FOREIGN KEY (inventory_id) REFERENCES inventory (id))`);
 
-        // Settings
-        db.run(`CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, store_name TEXT, tax_number TEXT, admin_pin TEXT DEFAULT '0000')`);
+        // Settings & Users
+        db.run(`CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, store_name TEXT, tax_number TEXT)`);
+        db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, pin TEXT UNIQUE NOT NULL, role TEXT DEFAULT 'cashier')`);
 
         // Seed initial data if empty
         db.get('SELECT COUNT(*) AS count FROM categories', [], (err, row) => {
@@ -72,7 +73,14 @@ function setupSchema() {
         // Seed Settings
         db.get('SELECT COUNT(*) AS count FROM settings', [], (err, row) => {
             if (!err && row.count === 0) {
-                db.run(`INSERT INTO settings (store_name, tax_number, admin_pin) VALUES ('My Restaurant', '1234567890', '0000')`);
+                db.run(`INSERT INTO settings (store_name, tax_number) VALUES ('My Restaurant', '1234567890')`);
+            }
+        });
+
+        // Seed Default Admin
+        db.get('SELECT COUNT(*) AS count FROM users', [], (err, row) => {
+            if (!err && row.count === 0) {
+                db.run(`INSERT INTO users (name, pin, role) VALUES ('Admin', '0000', 'admin')`);
             }
         });
     });
@@ -166,32 +174,16 @@ function getSettings() {
     });
 }
 
-function saveSettings(storeName, taxNumber, adminPin) {
+function saveSettings(storeName, taxNumber) {
     return new Promise((resolve, reject) => {
         db.get("SELECT id FROM settings ORDER BY id DESC LIMIT 1", [], (err, row) => {
             if (err) return reject(err);
-
-            const params = [storeName, taxNumber];
-            let updateQuery = `UPDATE settings SET store_name = ?, tax_number = ?`;
-            let insertQuery = `INSERT INTO settings (store_name, tax_number`;
-            let insertValues = `VALUES (?, ?`;
-
-            if (adminPin) {
-                updateQuery += `, admin_pin = ?`;
-                insertQuery += `, admin_pin`;
-                insertValues += `, ?`;
-                params.push(adminPin);
-            }
-
             if (row) {
-                updateQuery += ` WHERE id = ?`;
-                params.push(row.id);
-                db.run(updateQuery, params, err => {
+                db.run(`UPDATE settings SET store_name = ?, tax_number = ? WHERE id = ?`, [storeName, taxNumber, row.id], err => {
                     if (err) reject(err); else resolve(true);
                 });
             } else {
-                insertQuery += `) ${insertValues})`;
-                db.run(insertQuery, params, err => {
+                db.run(`INSERT INTO settings (store_name, tax_number) VALUES (?, ?)`, [storeName, taxNumber], err => {
                     if (err) reject(err); else resolve(true);
                 });
             }
@@ -199,13 +191,36 @@ function saveSettings(storeName, taxNumber, adminPin) {
     });
 }
 
-function verifyPin(pin) {
+function loginUser(pin) {
     return new Promise((resolve, reject) => {
-        db.get("SELECT admin_pin FROM settings ORDER BY id DESC LIMIT 1", [], (err, row) => {
-            if (err) return reject(err);
-            // Default pin is 0000 if not set
-            const actualPin = row && row.admin_pin ? row.admin_pin : '0000';
-            resolve(pin === actualPin);
+        db.get("SELECT * FROM users WHERE pin = ?", [pin], (err, row) => {
+            if (err) reject(err);
+            else resolve(row || null); // Return user object or null if invalid
+        });
+    });
+}
+
+function getUsers() {
+    return new Promise((resolve, reject) => {
+        db.all("SELECT id, name, role FROM users", [], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+
+function addUser(name, pin, role) {
+    return new Promise((resolve, reject) => {
+        db.run(`INSERT INTO users (name, pin, role) VALUES (?, ?, ?)`, [name, pin, role], function(err) {
+            if (err) reject(err); else resolve(this.lastID);
+        });
+    });
+}
+
+function deleteUser(id) {
+    return new Promise((resolve, reject) => {
+        db.run(`DELETE FROM users WHERE id = ?`, [id], function(err) {
+            if (err) reject(err); else resolve(this.changes);
         });
     });
 }
@@ -575,7 +590,10 @@ module.exports = {
     updateMenuItem,
     getSettings,
     saveSettings,
-    verifyPin,
+    loginUser,
+    getUsers,
+    addUser,
+    deleteUser,
     openShift,
     getCurrentShift,
     closeShift,

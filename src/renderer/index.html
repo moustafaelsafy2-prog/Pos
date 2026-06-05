@@ -7,7 +7,21 @@
     <link rel="stylesheet" href="pos.css">
   </head>
   <body>
-    <div id="license-modal" class="modal" style="display:none;">
+    <!-- Full Screen Login -->
+    <div id="login-screen" style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; width: 100vw; background: var(--gray-bg); position: fixed; top: 0; left: 0; z-index: 5000;">
+      <div class="modal-content" style="max-width: 400px; text-align: center; box-shadow: var(--shadow-hover);">
+        <div class="brand" style="justify-content: center; padding-bottom: 20px;">
+          <div class="brand-icon">🍽️</div>
+          <span data-i18n="app_title">POS</span>
+        </div>
+        <h2 data-i18n="login">Login</h2>
+        <p style="color: var(--gray-text); margin-bottom: 24px;" data-i18n="enter_pin">Enter your PIN to continue</p>
+        <input type="password" id="login-pin-input" class="custom-input" placeholder="****" style="text-align: center; font-size: 28px; letter-spacing: 8px;">
+        <button id="login-btn" class="custom-btn" style="background: var(--primary); margin-top: 20px;" data-i18n="login_btn">Login</button>
+      </div>
+    </div>
+
+    <div id="license-modal" class="modal" style="display:none; z-index: 6000;">
       <div class="modal-content">
         <h2 data-i18n="license_activation">License Activation</h2>
         <p data-i18n="license_prompt">Please enter your serial key to activate the POS system.</p>
@@ -57,6 +71,10 @@
           <li onclick="window.switchTab('settings')" id="nav-settings">
             <span class="nav-icon">⚙️</span>
             <span data-i18n="nav_settings" class="nav-text">Settings</span>
+          </li>
+          <li onclick="window.switchTab('staff')" id="nav-staff">
+            <span class="nav-icon">👨‍💼</span>
+            <span data-i18n="nav_staff" class="nav-text">Staff</span>
           </li>
         </ul>
         <div class="sidebar-bottom">
@@ -237,6 +255,42 @@
               <!-- Rendered via JS -->
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Main Staff Content -->
+      <div id="main-staff" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: var(--gray-bg); padding: 40px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+          <h1 data-i18n="nav_staff" style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">Staff Management</h1>
+          <button id="refresh-staff-btn" class="secondary-btn" style="width: auto; padding: 10px 24px;" data-i18n="refresh">Refresh</button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px;">
+          <div class="chart-card" style="height: fit-content;">
+            <h3 data-i18n="add_staff">Add Staff Member</h3>
+            <input type="text" id="new-staff-name" class="custom-input" data-i18n-placeholder="name_placeholder" placeholder="Name">
+            <input type="text" id="new-staff-pin" class="custom-input" data-i18n-placeholder="pin_placeholder" placeholder="PIN (4 digits)">
+            <select id="new-staff-role" class="custom-input">
+              <option value="cashier" data-i18n="cashier">Cashier</option>
+              <option value="admin" data-i18n="admin">Admin</option>
+            </select>
+            <button id="add-staff-btn" class="custom-btn" style="background: var(--primary);" data-i18n="save">Save</button>
+          </div>
+
+          <div class="chart-card">
+            <table class="premium-table" style="width: 100%; text-align: left; border-collapse: collapse;">
+              <thead>
+                <tr style="border-bottom: 2px solid var(--gray-bg); color: var(--gray-text);">
+                  <th style="padding: 16px;" data-i18n="name_placeholder">Name</th>
+                  <th style="padding: 16px;" data-i18n="role">Role</th>
+                  <th style="padding: 16px;" data-i18n="actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="staff-tbody">
+                <!-- Rendered via JS -->
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -504,6 +558,7 @@
     <script src="customers.js"></script>
     <script src="kds.js"></script>
     <script src="orders.js"></script>
+    <script src="staff.js"></script>
     <script src="license.js"></script>
   </body>
 </html>

@@ -151,7 +151,17 @@ const translations = {
         refunded: "مرتجع",
         completed: "مكتمل",
         refund_success: "تم استرجاع الفاتورة بنجاح.",
-        confirm_refund: "هل أنت متأكد من استرجاع هذه الفاتورة وإلغائها؟"
+        confirm_refund: "هل أنت متأكد من استرجاع هذه الفاتورة وإلغائها؟",
+        nav_staff: "الموظفين",
+        add_staff: "إضافة موظف",
+        pin_placeholder: "رمز المرور (4 أرقام)",
+        role: "الصلاحية",
+        cashier: "كاشير",
+        admin: "مدير",
+        login: "تسجيل الدخول",
+        enter_pin: "أدخل رمز المرور للمتابعة",
+        login_btn: "دخول",
+        confirm_delete: "هل أنت متأكد من الحذف؟"
     }
 };
 
@@ -241,6 +251,16 @@ translations.en.refunded = "Refunded";
 translations.en.completed = "Completed";
 translations.en.refund_success = "Order refunded successfully.";
 translations.en.confirm_refund = "Are you sure you want to refund this order?";
+translations.en.nav_staff = "Staff";
+translations.en.add_staff = "Add Staff Member";
+translations.en.pin_placeholder = "PIN (4 digits)";
+translations.en.role = "Role";
+translations.en.cashier = "Cashier";
+translations.en.admin = "Admin";
+translations.en.login = "Login";
+translations.en.enter_pin = "Enter your PIN to continue";
+translations.en.login_btn = "Login";
+translations.en.confirm_delete = "Are you sure you want to delete?";
 
 let currentLang = 'en';
 

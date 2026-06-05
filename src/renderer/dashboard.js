@@ -1,3 +1,4 @@
+window.currentUser = null;
 let typeChartInstance = null;
 let paymentChartInstance = null;
 
@@ -5,15 +6,11 @@ let pendingTabId = null;
 
 // Tab Switching Logic
 window.switchTab = function(tabId) {
-    if (tabId !== 'pos') {
-        // Require PIN for Dashboard, Customers, Inventory, Menu, Settings
-        pendingTabId = tabId;
-        document.getElementById('pin-input').value = '';
-        document.getElementById('pin-modal').style.display = 'flex';
-        document.getElementById('pin-input').focus();
-        return;
+    // Only Admin can access these tabs, and RBAC hides the buttons anyway.
+    // If somehow a cashier tries to access, block them.
+    if (window.currentUser && window.currentUser.role === 'cashier' && tabId !== 'pos' && tabId !== 'orders' && tabId !== 'kds') {
+        return alert("Access Denied");
     }
-
     executeTabSwitch(tabId);
 };
 
@@ -32,6 +29,8 @@ async function executeTabSwitch(tabId) {
     document.getElementById('main-settings').style.display = 'none';
     document.getElementById('main-customers').style.display = 'none';
     document.getElementById('main-kds').style.display = 'none';
+    const staffPanel = document.getElementById('main-staff');
+    if (staffPanel) staffPanel.style.display = 'none';
     document.getElementById('under-construction-panel').style.display = 'none';
 
     // Show selected container
@@ -59,6 +58,9 @@ async function executeTabSwitch(tabId) {
     } else if (tabId === 'customers') {
         document.getElementById('main-customers').style.display = 'flex';
         if(window.loadCustomersData) window.loadCustomersData();
+    } else if (tabId === 'staff') {
+        document.getElementById('main-staff').style.display = 'flex';
+        if(window.loadStaffData) window.loadStaffData();
     } else {
         document.getElementById('under-construction-panel').style.display = 'flex';
     }
@@ -69,25 +71,48 @@ document.getElementById('cancel-pin-btn').addEventListener('click', () => {
     pendingTabId = null;
 });
 
-document.getElementById('submit-pin-btn').addEventListener('click', async () => {
-    const pin = document.getElementById('pin-input').value;
+document.getElementById('login-btn').addEventListener('click', async () => {
+    const pin = document.getElementById('login-pin-input').value;
     try {
-        const isValid = await window.api.verifyPin(pin);
-        if (isValid) {
-            document.getElementById('pin-modal').style.display = 'none';
-            if (pendingTabId) {
-                executeTabSwitch(pendingTabId);
-                pendingTabId = null;
-            }
+        const user = await window.api.loginUser(pin);
+        if (user) {
+            window.currentUser = user;
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('app-container').style.display = 'flex';
+
+            // Apply RBAC UI changes
+            applyRoleRestrictions(user.role);
+
+            // Start POS
+            if(window.initPOS) window.initPOS();
         } else {
             alert(window.t('invalid_pin') || 'Invalid PIN');
-            document.getElementById('pin-input').value = '';
+            document.getElementById('login-pin-input').value = '';
         }
     } catch (e) {
-        console.error(e);
-        alert('Error verifying PIN');
+        console.error("Login failed:", e);
     }
 });
+
+function applyRoleRestrictions(role) {
+    if (role === 'cashier') {
+        document.getElementById('nav-dashboard').style.display = 'none';
+        document.getElementById('nav-menu').style.display = 'none';
+        document.getElementById('nav-inventory').style.display = 'none';
+        document.getElementById('nav-settings').style.display = 'none';
+        document.getElementById('nav-customers').style.display = 'none';
+        const staffNav = document.getElementById('nav-staff');
+        if(staffNav) staffNav.style.display = 'none';
+    } else {
+        document.getElementById('nav-dashboard').style.display = 'flex';
+        document.getElementById('nav-menu').style.display = 'flex';
+        document.getElementById('nav-inventory').style.display = 'flex';
+        document.getElementById('nav-settings').style.display = 'flex';
+        document.getElementById('nav-customers').style.display = 'flex';
+        const staffNav = document.getElementById('nav-staff');
+        if(staffNav) staffNav.style.display = 'flex';
+    }
+}
 
 let currentStartDate = null;
 let currentEndDate = null;

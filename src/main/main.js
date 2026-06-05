@@ -116,12 +116,24 @@ ipcMain.handle('db-get-settings', async () => {
     return await dbManager.getSettings();
 });
 
-ipcMain.handle('db-save-settings', async (event, storeName, taxNumber, adminPin) => {
-    return await dbManager.saveSettings(storeName, taxNumber, adminPin);
+ipcMain.handle('db-save-settings', async (event, storeName, taxNumber) => {
+    return await dbManager.saveSettings(storeName, taxNumber);
 });
 
-ipcMain.handle('db-verify-pin', async (event, pin) => {
-    return await dbManager.verifyPin(pin);
+ipcMain.handle('db-login-user', async (event, pin) => {
+    return await dbManager.loginUser(pin);
+});
+
+ipcMain.handle('db-get-users', async () => {
+    return await dbManager.getUsers();
+});
+
+ipcMain.handle('db-add-user', async (event, name, pin, role) => {
+    return await dbManager.addUser(name, pin, role);
+});
+
+ipcMain.handle('db-delete-user', async (event, id) => {
+    return await dbManager.deleteUser(id);
 });
 
 ipcMain.handle('db-open-shift', async (event, name, cash) => {
