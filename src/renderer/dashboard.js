@@ -25,6 +25,7 @@ async function executeTabSwitch(tabId) {
     // Hide all main containers
     document.getElementById('main-pos').style.display = 'none';
     document.getElementById('right-panel').style.display = 'none'; // Right panel belongs to POS
+    document.getElementById('main-orders').style.display = 'none';
     document.getElementById('main-dashboard').style.display = 'none';
     document.getElementById('main-menu').style.display = 'none';
     document.getElementById('main-inventory').style.display = 'none';
@@ -37,6 +38,9 @@ async function executeTabSwitch(tabId) {
     if (tabId === 'pos') {
         document.getElementById('main-pos').style.display = 'flex';
         document.getElementById('right-panel').style.display = 'flex';
+    } else if (tabId === 'orders') {
+        document.getElementById('main-orders').style.display = 'flex';
+        if(window.loadTodayOrders) window.loadTodayOrders();
     } else if (tabId === 'kds') {
         document.getElementById('main-kds').style.display = 'flex';
         if(window.loadKDSData) window.loadKDSData();

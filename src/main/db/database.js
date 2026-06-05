@@ -78,6 +78,30 @@ function setupSchema() {
     });
 }
 
+function getTodayOrders() {
+    return new Promise((resolve, reject) => {
+        // SQLite 'now' returns UTC, using DATE('now', 'localtime') ensures it matches local day
+        db.all(`SELECT o.*, c.name as customer_name
+                FROM orders o
+                LEFT JOIN customers c ON o.customer_id = c.id
+                WHERE DATE(o.order_date) = DATE('now', 'localtime')
+                ORDER BY o.id DESC`, [], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+
+function refundOrder(orderId) {
+    return new Promise((resolve, reject) => {
+        // Simple refund: just mark as refunded.
+        // A more advanced version would re-query recipes and add stock back to inventory.
+        db.run("UPDATE orders SET status = 'refunded' WHERE id = ? AND status != 'refunded'", [orderId], function(err) {
+            if (err) reject(err); else resolve(this.changes);
+        });
+    });
+}
+
 function getPendingOrders() {
     return new Promise((resolve, reject) => {
         db.all("SELECT * FROM orders WHERE status = 'preparing' ORDER BY order_date ASC", [], async (err, orders) => {
@@ -536,7 +560,9 @@ module.exports = {
     getAllCustomers,
     getCustomerOrders,
     getPendingOrders,
+    getTodayOrders,
     markOrderReady,
+    refundOrder,
     saveCustomer,
     getDashboardStats,
     getInventory,

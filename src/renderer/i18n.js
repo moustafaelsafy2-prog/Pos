@@ -142,7 +142,16 @@ const translations = {
         start_shift: "بدء الوردية",
         close_shift: "إغلاق الوردية",
         actual_cash: "النقدية الفعلية في الدرج الآن",
-        confirm_close: "تأكيد وطباعة تقرير Z"
+        confirm_close: "تأكيد وطباعة تقرير Z",
+        nav_orders: "سجل الفواتير",
+        today_orders: "فواتير اليوم",
+        invoice_no: "رقم الفاتورة",
+        time: "الوقت",
+        refund: "استرجاع",
+        refunded: "مرتجع",
+        completed: "مكتمل",
+        refund_success: "تم استرجاع الفاتورة بنجاح.",
+        confirm_refund: "هل أنت متأكد من استرجاع هذه الفاتورة وإلغائها؟"
     }
 };
 
@@ -223,6 +232,15 @@ translations.en.start_shift = "Start Shift";
 translations.en.close_shift = "Close Shift";
 translations.en.actual_cash = "Actual Cash in Drawer";
 translations.en.confirm_close = "Confirm & Print Z-Report";
+translations.en.nav_orders = "Orders";
+translations.en.today_orders = "Today's Orders";
+translations.en.invoice_no = "Invoice #";
+translations.en.time = "Time";
+translations.en.refund = "Refund";
+translations.en.refunded = "Refunded";
+translations.en.completed = "Completed";
+translations.en.refund_success = "Order refunded successfully.";
+translations.en.confirm_refund = "Are you sure you want to refund this order?";
 
 let currentLang = 'en';
 

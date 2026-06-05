@@ -60,8 +60,16 @@ ipcMain.handle('db-get-pending-orders', async () => {
     return await dbManager.getPendingOrders();
 });
 
+ipcMain.handle('db-get-today-orders', async () => {
+    return await dbManager.getTodayOrders();
+});
+
 ipcMain.handle('db-mark-order-ready', async (event, orderId) => {
     return await dbManager.markOrderReady(orderId);
+});
+
+ipcMain.handle('db-refund-order', async (event, orderId) => {
+    return await dbManager.refundOrder(orderId);
 });
 
 ipcMain.handle('db-save-customer', async (event, customer) => {

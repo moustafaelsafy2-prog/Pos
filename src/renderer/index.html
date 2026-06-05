@@ -30,6 +30,10 @@
             <span class="nav-icon">🛒</span>
             <span data-i18n="nav_pos" class="nav-text">POS</span>
           </li>
+          <li onclick="window.switchTab('orders')" id="nav-orders">
+            <span class="nav-icon">🧾</span>
+            <span data-i18n="nav_orders" class="nav-text">Orders</span>
+          </li>
           <li onclick="window.switchTab('kds')" id="nav-kds">
             <span class="nav-icon">🧑‍🍳</span>
             <span data-i18n="nav_kds" class="nav-text">Kitchen</span>
@@ -261,6 +265,31 @@
         </div>
       </div>
 
+      <!-- Main Orders History Content -->
+      <div id="main-orders" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: var(--gray-bg); padding: 40px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+          <h1 data-i18n="today_orders" style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">Today's Orders</h1>
+          <button id="refresh-orders-btn" class="secondary-btn" style="width: auto; padding: 10px 24px;" data-i18n="refresh">Refresh</button>
+        </div>
+
+        <div class="chart-card">
+          <table class="premium-table" style="width: 100%; text-align: left; border-collapse: collapse;">
+            <thead>
+              <tr style="border-bottom: 2px solid var(--gray-bg); color: var(--gray-text);">
+                <th style="padding: 16px;" data-i18n="invoice_no">Invoice #</th>
+                <th style="padding: 16px;" data-i18n="time">Time</th>
+                <th style="padding: 16px;" data-i18n="total">Total</th>
+                <th style="padding: 16px;" data-i18n="status">Status</th>
+                <th style="padding: 16px;" data-i18n="actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="orders-tbody">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Main KDS Content -->
       <div id="main-kds" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: var(--gray-bg); padding: 40px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
@@ -474,6 +503,7 @@
     <script src="settings.js"></script>
     <script src="customers.js"></script>
     <script src="kds.js"></script>
+    <script src="orders.js"></script>
     <script src="license.js"></script>
   </body>
 </html>
