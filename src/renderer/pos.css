@@ -607,6 +607,23 @@ body {
     }
 }
 
+/* ------------------- DELIVERY SPECIFICS ------------------- */
+.dispatch-item {
+    padding: 16px;
+    border-bottom: 1px solid var(--gray-bg);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.settlement-item {
+    padding: 16px;
+    border-bottom: 1px solid var(--gray-bg);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
 /* ------------------- KDS SPECIFICS ------------------- */
 .kds-ticket {
     background: var(--white);

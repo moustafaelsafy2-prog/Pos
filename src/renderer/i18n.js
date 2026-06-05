@@ -161,7 +161,13 @@ const translations = {
         login: "تسجيل الدخول",
         enter_pin: "أدخل رمز المرور للمتابعة",
         login_btn: "دخول",
-        confirm_delete: "هل أنت متأكد من الحذف؟"
+        confirm_delete: "هل أنت متأكد من الحذف؟",
+        nav_delivery: "التوصيل",
+        add_driver: "إضافة مندوب",
+        dispatch_orders: "توجيه الطلبات",
+        driver_settlements: "عهد المناديب",
+        assign_driver: "تعيين مندوب",
+        settle: "تسوية العهدة"
     }
 };
 
@@ -261,6 +267,12 @@ translations.en.login = "Login";
 translations.en.enter_pin = "Enter your PIN to continue";
 translations.en.login_btn = "Login";
 translations.en.confirm_delete = "Are you sure you want to delete?";
+translations.en.nav_delivery = "Delivery";
+translations.en.add_driver = "Add Driver";
+translations.en.dispatch_orders = "Dispatch Orders";
+translations.en.driver_settlements = "Driver Settlements";
+translations.en.assign_driver = "Assign";
+translations.en.settle = "Settle Cash";
 
 let currentLang = 'en';
 

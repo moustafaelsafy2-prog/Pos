@@ -64,6 +64,10 @@
             <span class="nav-icon">📦</span>
             <span data-i18n="nav_inventory" class="nav-text">Inventory</span>
           </li>
+          <li onclick="window.switchTab('delivery')" id="nav-delivery">
+            <span class="nav-icon">🛵</span>
+            <span data-i18n="nav_delivery" class="nav-text">Delivery</span>
+          </li>
           <li onclick="window.switchTab('customers')" id="nav-customers">
             <span class="nav-icon">👥</span>
             <span data-i18n="nav_customers" class="nav-text">Customers</span>
@@ -356,6 +360,58 @@
         </div>
       </div>
 
+      <!-- Main Delivery Content -->
+      <div id="main-delivery" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: var(--gray-bg); padding: 40px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+          <h1 data-i18n="nav_delivery" style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">Delivery Management</h1>
+          <button id="refresh-delivery-btn" class="secondary-btn" style="width: auto; padding: 10px 24px;" data-i18n="refresh">Refresh</button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+          <!-- Unassigned Orders (Dispatch) -->
+          <div class="chart-card">
+            <h3 data-i18n="dispatch_orders">Dispatch Orders</h3>
+            <div id="dispatch-list" style="max-height: 400px; overflow-y: auto;">
+                <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Driver Settlements -->
+          <div class="chart-card">
+            <h3 data-i18n="driver_settlements">Driver Settlements</h3>
+            <div id="settlements-list" style="max-height: 400px; overflow-y: auto;">
+                <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px;">
+          <!-- Add Driver -->
+          <div class="chart-card" style="height: fit-content;">
+            <h3 data-i18n="add_driver">Add Driver</h3>
+            <input type="text" id="new-driver-name" class="custom-input" data-i18n-placeholder="name_placeholder" placeholder="Name">
+            <input type="text" id="new-driver-phone" class="custom-input" data-i18n-placeholder="phone_placeholder" placeholder="Phone">
+            <button id="add-driver-btn" class="custom-btn" style="background: var(--primary);" data-i18n="save">Save</button>
+          </div>
+
+          <!-- Drivers Table -->
+          <div class="chart-card">
+            <table class="premium-table" style="width: 100%; text-align: left; border-collapse: collapse;">
+              <thead>
+                <tr style="border-bottom: 2px solid var(--gray-bg); color: var(--gray-text);">
+                  <th style="padding: 16px;" data-i18n="name_placeholder">Name</th>
+                  <th style="padding: 16px;" data-i18n="phone_placeholder">Phone Number</th>
+                  <th style="padding: 16px;" data-i18n="actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="drivers-tbody">
+                <!-- Rendered via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- Main Customers Content -->
       <div id="main-customers" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: var(--gray-bg); padding: 40px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
@@ -556,6 +612,7 @@
     <script src="menu.js"></script>
     <script src="settings.js"></script>
     <script src="customers.js"></script>
+    <script src="delivery.js"></script>
     <script src="kds.js"></script>
     <script src="orders.js"></script>
     <script src="staff.js"></script>

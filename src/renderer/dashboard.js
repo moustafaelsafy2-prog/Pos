@@ -26,6 +26,7 @@ async function executeTabSwitch(tabId) {
     document.getElementById('main-dashboard').style.display = 'none';
     document.getElementById('main-menu').style.display = 'none';
     document.getElementById('main-inventory').style.display = 'none';
+    document.getElementById('main-delivery').style.display = 'none';
     document.getElementById('main-settings').style.display = 'none';
     document.getElementById('main-customers').style.display = 'none';
     document.getElementById('main-kds').style.display = 'none';
@@ -49,6 +50,9 @@ async function executeTabSwitch(tabId) {
     } else if (tabId === 'inventory') {
         document.getElementById('main-inventory').style.display = 'flex';
         if(window.loadInventoryData) window.loadInventoryData();
+    } else if (tabId === 'delivery') {
+        document.getElementById('main-delivery').style.display = 'flex';
+        if(window.loadDeliveryData) window.loadDeliveryData();
     } else if (tabId === 'menu') {
         document.getElementById('main-menu').style.display = 'flex';
         if(window.loadMenuManagementData) window.loadMenuManagementData();
@@ -99,6 +103,8 @@ function applyRoleRestrictions(role) {
         document.getElementById('nav-dashboard').style.display = 'none';
         document.getElementById('nav-menu').style.display = 'none';
         document.getElementById('nav-inventory').style.display = 'none';
+        const deliveryNav = document.getElementById('nav-delivery');
+        if(deliveryNav) deliveryNav.style.display = 'none';
         document.getElementById('nav-settings').style.display = 'none';
         document.getElementById('nav-customers').style.display = 'none';
         const staffNav = document.getElementById('nav-staff');
@@ -107,6 +113,8 @@ function applyRoleRestrictions(role) {
         document.getElementById('nav-dashboard').style.display = 'flex';
         document.getElementById('nav-menu').style.display = 'flex';
         document.getElementById('nav-inventory').style.display = 'flex';
+        const deliveryNav = document.getElementById('nav-delivery');
+        if(deliveryNav) deliveryNav.style.display = 'flex';
         document.getElementById('nav-settings').style.display = 'flex';
         document.getElementById('nav-customers').style.display = 'flex';
         const staffNav = document.getElementById('nav-staff');

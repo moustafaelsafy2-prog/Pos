@@ -23,8 +23,9 @@ function setupSchema() {
         db.run(`CREATE TABLE IF NOT EXISTS categories (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)`);
         db.run(`CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, category_id INTEGER, name TEXT NOT NULL, price REAL NOT NULL, image_url TEXT, FOREIGN KEY (category_id) REFERENCES categories (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT UNIQUE, address TEXT)`);
+        db.run(`CREATE TABLE IF NOT EXISTS drivers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT)`);
         db.run(`CREATE TABLE IF NOT EXISTS shifts (id INTEGER PRIMARY KEY AUTOINCREMENT, cashier_name TEXT NOT NULL, start_time DATETIME DEFAULT CURRENT_TIMESTAMP, end_time DATETIME, starting_cash REAL DEFAULT 0, expected_cash REAL DEFAULT 0, actual_cash REAL DEFAULT 0, status TEXT DEFAULT 'open')`);
-        db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, shift_id INTEGER, customer_id INTEGER, order_type TEXT DEFAULT 'Dine-in', subtotal REAL DEFAULT 0, tax_amount REAL DEFAULT 0, discount REAL DEFAULT 0, total_amount REAL NOT NULL, payment_method TEXT DEFAULT 'Cash', order_date DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'preparing', FOREIGN KEY (customer_id) REFERENCES customers (id), FOREIGN KEY (shift_id) REFERENCES shifts (id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, shift_id INTEGER, customer_id INTEGER, driver_id INTEGER, order_type TEXT DEFAULT 'Dine-in', subtotal REAL DEFAULT 0, tax_amount REAL DEFAULT 0, discount REAL DEFAULT 0, total_amount REAL NOT NULL, payment_method TEXT DEFAULT 'Cash', order_date DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'preparing', is_settled INTEGER DEFAULT 0, FOREIGN KEY (customer_id) REFERENCES customers (id), FOREIGN KEY (shift_id) REFERENCES shifts (id), FOREIGN KEY (driver_id) REFERENCES drivers (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, item_id INTEGER, quantity INTEGER NOT NULL, subtotal REAL NOT NULL, notes TEXT, FOREIGN KEY (order_id) REFERENCES orders (id), FOREIGN KEY (item_id) REFERENCES items (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS license (id INTEGER PRIMARY KEY AUTOINCREMENT, serial_key TEXT, activated_at DATETIME, expires_at DATETIME, machine_id TEXT)`);
 
@@ -82,6 +83,75 @@ function setupSchema() {
             if (!err && row.count === 0) {
                 db.run(`INSERT INTO users (name, pin, role) VALUES ('Admin', '0000', 'admin')`);
             }
+        });
+    });
+}
+
+function getDrivers() {
+    return new Promise((resolve, reject) => {
+        db.all("SELECT * FROM drivers", [], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+
+function addDriver(name, phone) {
+    return new Promise((resolve, reject) => {
+        db.run(`INSERT INTO drivers (name, phone) VALUES (?, ?)`, [name, phone], function(err) {
+            if (err) reject(err); else resolve(this.lastID);
+        });
+    });
+}
+
+function deleteDriver(id) {
+    return new Promise((resolve, reject) => {
+        db.run(`DELETE FROM drivers WHERE id = ?`, [id], function(err) {
+            if (err) reject(err); else resolve(this.changes);
+        });
+    });
+}
+
+function getUnassignedDeliveries() {
+    return new Promise((resolve, reject) => {
+        db.all(`SELECT o.*, c.name as customer_name, c.address
+                FROM orders o
+                LEFT JOIN customers c ON o.customer_id = c.id
+                WHERE o.order_type = 'Delivery' AND o.driver_id IS NULL AND o.status != 'refunded'
+                ORDER BY o.id ASC`, [], (err, rows) => {
+            if (err) reject(err); else resolve(rows);
+        });
+    });
+}
+
+function assignDriver(orderId, driverId) {
+    return new Promise((resolve, reject) => {
+        db.run(`UPDATE orders SET driver_id = ? WHERE id = ?`, [driverId, orderId], function(err) {
+            if (err) reject(err); else resolve(this.changes);
+        });
+    });
+}
+
+function getDriverSettlements() {
+    return new Promise((resolve, reject) => {
+        // Get total unsettled cash per driver
+        const query = `
+            SELECT d.id, d.name, d.phone, SUM(o.total_amount) as total_cash_due, COUNT(o.id) as orders_count
+            FROM drivers d
+            JOIN orders o ON o.driver_id = d.id
+            WHERE o.is_settled = 0 AND o.payment_method = 'Cash' AND o.status != 'refunded'
+            GROUP BY d.id
+        `;
+        db.all(query, [], (err, rows) => {
+            if (err) reject(err); else resolve(rows);
+        });
+    });
+}
+
+function settleDriver(driverId) {
+    return new Promise((resolve, reject) => {
+        db.run(`UPDATE orders SET is_settled = 1 WHERE driver_id = ? AND is_settled = 0 AND payment_method = 'Cash'`, [driverId], function(err) {
+            if (err) reject(err); else resolve(this.changes);
         });
     });
 }
@@ -594,6 +664,13 @@ module.exports = {
     getUsers,
     addUser,
     deleteUser,
+    getDrivers,
+    addDriver,
+    deleteDriver,
+    getUnassignedDeliveries,
+    assignDriver,
+    getDriverSettlements,
+    settleDriver,
     openShift,
     getCurrentShift,
     closeShift,

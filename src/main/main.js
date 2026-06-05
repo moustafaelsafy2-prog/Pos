@@ -136,6 +136,34 @@ ipcMain.handle('db-delete-user', async (event, id) => {
     return await dbManager.deleteUser(id);
 });
 
+ipcMain.handle('db-get-drivers', async () => {
+    return await dbManager.getDrivers();
+});
+
+ipcMain.handle('db-add-driver', async (event, name, phone) => {
+    return await dbManager.addDriver(name, phone);
+});
+
+ipcMain.handle('db-delete-driver', async (event, id) => {
+    return await dbManager.deleteDriver(id);
+});
+
+ipcMain.handle('db-get-unassigned-deliveries', async () => {
+    return await dbManager.getUnassignedDeliveries();
+});
+
+ipcMain.handle('db-assign-driver', async (event, orderId, driverId) => {
+    return await dbManager.assignDriver(orderId, driverId);
+});
+
+ipcMain.handle('db-get-driver-settlements', async () => {
+    return await dbManager.getDriverSettlements();
+});
+
+ipcMain.handle('db-settle-driver', async (event, driverId) => {
+    return await dbManager.settleDriver(driverId);
+});
+
 ipcMain.handle('db-open-shift', async (event, name, cash) => {
     return await dbManager.openShift(name, cash);
 });
