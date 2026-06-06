@@ -12,6 +12,7 @@ async function initPOS() {
         const shift = await window.api.getCurrentShift();
         if (shift) {
             currentShiftId = shift.id;
+            window.currentShiftId = shift.id; // Expose globally for other modules like accounting
         } else {
             // Block UI with Open Shift Modal
             document.getElementById('open-shift-modal').style.display = 'flex';
@@ -451,6 +452,7 @@ document.getElementById('submit-open-shift-btn').addEventListener('click', async
     try {
         const shift = await window.api.openShift(name, startingCash);
         currentShiftId = shift.id;
+        window.currentShiftId = shift.id;
         document.getElementById('open-shift-modal').style.display = 'none';
     } catch (e) {
         console.error("Failed to open shift", e);
@@ -476,6 +478,7 @@ document.getElementById('submit-close-shift-btn').addEventListener('click', asyn
         await printZReport(currentShiftId, result.expected_cash, result.actual_cash);
 
         currentShiftId = null;
+        window.currentShiftId = null;
         document.getElementById('shift-cashier-name').value = '';
         document.getElementById('shift-starting-cash').value = '';
         document.getElementById('shift-actual-cash').value = '';

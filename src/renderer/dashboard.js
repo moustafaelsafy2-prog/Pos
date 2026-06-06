@@ -34,6 +34,8 @@ async function executeTabSwitch(tabId) {
     if (staffPanel) staffPanel.style.display = 'none';
     const acctPanel = document.getElementById('main-accounting');
     if (acctPanel) acctPanel.style.display = 'none';
+    const helpPanel = document.getElementById('main-help');
+    if (helpPanel) helpPanel.style.display = 'none';
     document.getElementById('under-construction-panel').style.display = 'none';
 
     // Show selected container
@@ -70,6 +72,8 @@ async function executeTabSwitch(tabId) {
     } else if (tabId === 'accounting') {
         document.getElementById('main-accounting').style.display = 'flex';
         if(window.loadAccountingData) window.loadAccountingData();
+    } else if (tabId === 'help') {
+        document.getElementById('main-help').style.display = 'flex';
     } else {
         document.getElementById('under-construction-panel').style.display = 'flex';
     }

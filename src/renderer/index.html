@@ -80,6 +80,10 @@
             <span class="nav-icon">⚙️</span>
             <span data-i18n="nav_settings" class="nav-text">Settings</span>
           </li>
+          <li onclick="window.switchTab('help')" id="nav-help">
+            <span class="nav-icon">📖</span>
+            <span data-i18n="nav_help" class="nav-text">Help / Guide</span>
+          </li>
           <li onclick="window.switchTab('staff')" id="nav-staff">
             <span class="nav-icon">👨‍💼</span>
             <span data-i18n="nav_staff" class="nav-text">Staff</span>
@@ -352,6 +356,52 @@
               <!-- Rendered via JS -->
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Main Help / Guide Content -->
+      <div id="main-help" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: var(--gray-bg); padding: 40px;">
+        <div style="margin-bottom: 30px;">
+          <h1 style="margin: 0; font-size: 32px; font-weight: 700; color: var(--primary);">System Documentation & Guide</h1>
+          <p style="color: var(--gray-text); font-size: 14px;">Learn how to use the POS features and configure advanced settings.</p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr; gap: 24px;">
+
+          <div class="chart-card">
+            <h3>🌐 Local Server Synchronization Guide</h3>
+            <p style="color: #444; line-height: 1.6; font-size: 14px;">
+              The Background Sync feature allows this POS terminal to automatically send completed and refunded orders to a central local server (e.g., a main computer in the restaurant manager's office) every 30 seconds. This is useful for multi-branch or multi-register setups.
+            </p>
+
+            <h4 style="margin-top: 20px;">Step 1: Locate your Central Server IP</h4>
+            <p style="font-size: 13px; color: var(--gray-text);">Ensure the central server is running on the same local network (Wi-Fi/LAN). Find its IPv4 address (e.g., <code>192.168.1.100</code>).</p>
+
+            <h4 style="margin-top: 20px;">Step 2: Enter the URL in Settings</h4>
+            <p style="font-size: 13px; color: var(--gray-text);">Navigate to the <b>Settings</b> tab. In the "Local Server Sync" field, enter the full URL including the port (e.g., <code>http://192.168.1.100:3000/sync</code>).</p>
+
+            <div style="margin-top: 15px; border: 2px dashed var(--secondary); border-radius: 8px; padding: 15px; background: #f0fdfb; display: flex; align-items: center; gap: 15px;">
+                <div style="font-size: 40px;">⚙️</div>
+                <div>
+                    <div style="font-weight: bold; margin-bottom: 5px;">Local Server Sync</div>
+                    <input type="text" class="custom-input" style="width: 300px; margin: 0; background: white;" value="http://192.168.1.100:3000" readonly>
+                    <button class="custom-btn" style="background: var(--dark); padding: 8px 15px; display: inline-block; width: auto;">Save</button>
+                </div>
+            </div>
+
+            <h4 style="margin-top: 20px;">Step 3: Verification</h4>
+            <p style="font-size: 13px; color: var(--gray-text);">Once saved, the app will silently attempt to push any unsynced <code>completed</code> or <code>refunded</code> orders in the background. If the central server is unreachable, the POS will keep the orders locally and try again later (Offline-First approach).</p>
+          </div>
+
+          <div class="chart-card">
+            <h3>🛒 Basic Operations</h3>
+            <ul style="line-height: 1.8; color: #444; font-size: 14px;">
+              <li><b>Taking an Order:</b> Click items from the menu, apply a discount if needed, and hit Checkout. Loyalty points are automatically awarded if a customer is selected.</li>
+              <li><b>Refunds:</b> Go to the <i>Orders</i> tab, find the invoice, and click Refund. You can return specific items to auto-replenish the inventory stock.</li>
+              <li><b>Kitchen Printing:</b> When an order is checked out, a customer receipt prints first, followed automatically by a larger, price-free <i>Kitchen Ticket</i>.</li>
+            </ul>
+          </div>
+
         </div>
       </div>
 
