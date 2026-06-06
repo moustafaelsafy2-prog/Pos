@@ -6,9 +6,6 @@ const bcrypt = require('bcryptjs');
 
 let db;
 
-// Secret key for JWT signing. In a real production app, this should be obfuscated or fetched securely.
-// For this standalone desktop app, it acts as the master signing key.
-const JWT_SECRET = "restaurant_pos_super_secret_master_key_2023";
 const MASTER_PASSWORD_HASH = bcrypt.hashSync("admin12345", 8); // Default master password: admin12345
 
 function initDb(userDataPath) {
@@ -372,18 +369,28 @@ function verifyMasterPassword(password) {
 }
 
 function generateLicenseToken(days) {
-    return new Promise((resolve) => {
-        const machineId = machineIdSync();
-        const expirationDate = new Date();
-        expirationDate.setDate(expirationDate.getDate() + parseInt(days));
+    return new Promise((resolve, reject) => {
+        try {
+            const machineId = machineIdSync();
+            const expirationDate = new Date();
+            expirationDate.setDate(expirationDate.getDate() + parseInt(days));
 
-        const payload = {
-            machineId: machineId,
-            expiresAt: expirationDate.toISOString()
-        };
+            const payload = {
+                machineId: machineId,
+                expiresAt: expirationDate.toISOString()
+            };
 
-        const token = jwt.sign(payload, JWT_SECRET);
-        resolve(token);
+            const privateKeyPath = path.join(__dirname, '..', '..', '..', 'tools', 'private.pem');
+            if (!fs.existsSync(privateKeyPath)) {
+                return reject(new Error('Private key not found. Ensure tools/private.pem exists for development generation.'));
+            }
+            const privateKey = fs.readFileSync(privateKeyPath, 'utf8');
+
+            const token = jwt.sign(payload, privateKey, { algorithm: 'RS256' });
+            resolve(token);
+        } catch (e) {
+            reject(e);
+        }
     });
 }
 
@@ -616,7 +623,7 @@ function getDashboardStats(startDate = null, endDate = null) {
     });
 }
 
-function submitOrder(cart, orderType, customerId, paymentMethod, discount, shiftId) {
+function submitOrder(cart, orderType, customerId, paymentMethod, discount, shiftId, pointsRedeemed = 0) {
     return new Promise((resolve, reject) => {
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
         const taxRate = 0.15; // 15% VAT
@@ -666,10 +673,22 @@ function submitOrder(cart, orderType, customerId, paymentMethod, discount, shift
                 // Wait for all inventory deductions to complete
                 Promise.all(deductionPromises)
                     .then(() => {
-                        db.run('COMMIT', (err) => {
-                            if (err) return db.run('ROLLBACK', () => reject(err));
-                            resolve({ orderId, total, subtotal, taxAmount, discount });
-                        });
+                        // 3. Update customer points if customerId is provided
+                        if (customerId) {
+                            const pointsEarned = Math.floor(total);
+                            db.run(`UPDATE customers SET points = points + ? - ? WHERE id = ?`, [pointsEarned, pointsRedeemed, customerId], (err) => {
+                                if (err) return db.run('ROLLBACK', () => reject(err));
+                                db.run('COMMIT', (err) => {
+                                    if (err) return db.run('ROLLBACK', () => reject(err));
+                                    resolve({ orderId, total, subtotal, taxAmount, discount, pointsEarned });
+                                });
+                            });
+                        } else {
+                            db.run('COMMIT', (err) => {
+                                if (err) return db.run('ROLLBACK', () => reject(err));
+                                resolve({ orderId, total, subtotal, taxAmount, discount });
+                            });
+                        }
                     })
                     .catch(err => {
                         db.run('ROLLBACK', () => reject(err));
@@ -715,8 +734,10 @@ function checkLicense() {
             if (!row) return resolve({ valid: false });
 
             try {
+                const publicKeyPath = path.join(__dirname, '..', 'public.pem');
+                const publicKey = fs.readFileSync(publicKeyPath, 'utf8');
                 // Verify the JWT stored in the database
-                const decoded = jwt.verify(row.serial_key, JWT_SECRET);
+                const decoded = jwt.verify(row.serial_key, publicKey, { algorithms: ['RS256'] });
 
                 // Ensure the token was generated for THIS specific machine
                 if (decoded.machineId !== currentMachineId) {
@@ -741,7 +762,9 @@ function activateLicense(token) {
     return new Promise((resolve, reject) => {
         try {
             const currentMachineId = machineIdSync();
-            const decoded = jwt.verify(token, JWT_SECRET);
+            const publicKeyPath = path.join(__dirname, '..', 'public.pem');
+            const publicKey = fs.readFileSync(publicKeyPath, 'utf8');
+            const decoded = jwt.verify(token, publicKey, { algorithms: ['RS256'] });
 
             if (decoded.machineId !== currentMachineId) {
                 return resolve({ success: false, message: "License key is not valid for this machine." });
