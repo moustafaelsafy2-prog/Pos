@@ -6,7 +6,8 @@ const bcrypt = require('bcryptjs');
 
 let db;
 
-const MASTER_PASSWORD_HASH = bcrypt.hashSync("admin12345", 8); // Default master password: admin12345
+// Pre-computed hash for 'admin12345'
+const MASTER_PASSWORD_HASH = "$2b$08$pPJu872WBb8a/TJA8iW8LO7n8AWVnQpDmRNa1VRWnmxkE1din41h2";
 
 function initDb(userDataPath) {
     const dbPath = path.join(userDataPath, 'pos_database.sqlite');

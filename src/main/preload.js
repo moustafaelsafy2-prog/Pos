@@ -53,6 +53,6 @@ contextBridge.exposeInMainWorld('api', {
     checkLicense: () => ipcRenderer.invoke('check-license'),
     activateLicense: (key) => ipcRenderer.invoke('activate-license', key),
     verifyMasterPassword: (password) => ipcRenderer.invoke('db-verify-master-password', password),
-    generateLicense: (days) => ipcRenderer.invoke('db-generate-license', days),
+    generateLicense: (days, targetMachineId) => ipcRenderer.invoke('db-generate-license', days, targetMachineId),
     getMachineId: () => ipcRenderer.invoke('get-machine-id')
 });

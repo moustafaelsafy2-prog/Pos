@@ -90,12 +90,13 @@ document.getElementById('verify-master-btn').addEventListener('click', async () 
 
 document.getElementById('generate-license-btn').addEventListener('click', async () => {
     const days = document.getElementById('license-days-input').value;
+    const targetMachineId = document.getElementById('machine-id-display').value.trim();
     try {
-        const token = await window.api.generateLicense(days);
+        const token = await window.api.generateLicense(days, targetMachineId);
         document.getElementById('generated-key-container').style.display = 'block';
         document.getElementById('generated-key-display').value = token;
     } catch (e) {
         console.error(e);
-        alert("Failed to generate license token");
+        alert("Failed to generate license token. Are you sure you have tools/private.pem?");
     }
 });

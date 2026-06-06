@@ -292,8 +292,8 @@ ipcMain.handle('db-verify-master-password', async (event, password) => {
     return await dbManager.verifyMasterPassword(password);
 });
 
-ipcMain.handle('db-generate-license', async (event, days) => {
-    return await dbManager.generateLicenseToken(days);
+ipcMain.handle('db-generate-license', async (event, days, targetMachineId) => {
+    return await dbManager.generateLicenseToken(days, targetMachineId);
 });
 
 // Helper to easily grab the machine ID for the front end generator
