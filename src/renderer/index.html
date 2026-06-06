@@ -72,6 +72,10 @@
             <span class="nav-icon">👥</span>
             <span data-i18n="nav_customers" class="nav-text">Customers</span>
           </li>
+          <li onclick="window.switchTab('accounting')" id="nav-accounting">
+            <span class="nav-icon">🧮</span>
+            <span data-i18n="nav_accounting" class="nav-text">Accounting</span>
+          </li>
           <li onclick="window.switchTab('settings')" id="nav-settings">
             <span class="nav-icon">⚙️</span>
             <span data-i18n="nav_settings" class="nav-text">Settings</span>
@@ -267,6 +271,90 @@
         </div>
       </div>
 
+      <!-- Main Accounting Content -->
+      <div id="main-accounting" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: var(--gray-bg); padding: 40px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
+          <h1 data-i18n="nav_accounting" style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">Accounting & Purchasing</h1>
+          <button id="refresh-accounting-btn" class="secondary-btn" style="width: auto; padding: 10px 24px;" data-i18n="refresh">Refresh</button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+          <!-- Expenses Section -->
+          <div class="chart-card">
+            <h3 data-i18n="add_expense">Add Expense</h3>
+            <select id="new-expense-category" class="custom-input">
+              <option value="Supplies">Supplies & Raw Materials</option>
+              <option value="Utilities">Utilities (Electricity, Water, etc.)</option>
+              <option value="Maintenance">Maintenance & Repairs</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Other">Other</option>
+            </select>
+            <input type="number" id="new-expense-amount" class="custom-input" placeholder="Amount ($)">
+            <input type="text" id="new-expense-desc" class="custom-input" placeholder="Description / Receipt #">
+            <button id="add-expense-btn" class="custom-btn" style="background: var(--primary);" data-i18n="save">Record Expense</button>
+
+            <h4 style="margin-top: 20px;">Recent Expenses</h4>
+            <div style="max-height: 200px; overflow-y: auto;">
+              <table class="premium-table" style="width: 100%; text-align: left; border-collapse: collapse;">
+                <thead>
+                  <tr style="border-bottom: 2px solid var(--gray-bg); color: var(--gray-text);">
+                    <th style="padding: 10px;">Date</th>
+                    <th style="padding: 10px;">Category</th>
+                    <th style="padding: 10px;">Amount</th>
+                  </tr>
+                </thead>
+                <tbody id="expenses-tbody">
+                  <!-- Rendered via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Shifts Audit Section -->
+          <div class="chart-card">
+            <h3 data-i18n="shift_audit">Shift Audits</h3>
+            <p style="font-size: 12px; color: var(--gray-text);">Review and mark past shifts as audited.</p>
+            <div style="max-height: 350px; overflow-y: auto;">
+              <table class="premium-table" style="width: 100%; text-align: left; border-collapse: collapse;">
+                <thead>
+                  <tr style="border-bottom: 2px solid var(--gray-bg); color: var(--gray-text);">
+                    <th style="padding: 10px;">Shift ID</th>
+                    <th style="padding: 10px;">Cashier</th>
+                    <th style="padding: 10px;">Status / Audit</th>
+                  </tr>
+                </thead>
+                <tbody id="shifts-audit-tbody">
+                  <!-- Rendered via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Purchase Orders Section -->
+        <div class="chart-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 data-i18n="purchase_orders" style="margin:0;">Purchase Orders</h3>
+            <button id="new-po-btn" class="secondary-btn" style="width: auto; padding: 5px 15px; margin: 0;">+ New PO</button>
+          </div>
+          <table class="premium-table" style="width: 100%; text-align: left; border-collapse: collapse;">
+            <thead>
+              <tr style="border-bottom: 2px solid var(--gray-bg); color: var(--gray-text);">
+                <th style="padding: 16px;">PO #</th>
+                <th style="padding: 16px;">Supplier</th>
+                <th style="padding: 16px;">Date</th>
+                <th style="padding: 16px;">Total</th>
+                <th style="padding: 16px;">Status</th>
+                <th style="padding: 16px;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="po-tbody">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Main Staff Content -->
       <div id="main-staff" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: var(--gray-bg); padding: 40px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
@@ -445,6 +533,59 @@
           </table>
         </div>
       </div>
+
+    <!-- Create PO Modal -->
+    <div id="create-po-modal" class="modal" style="display:none; z-index: 2000;">
+      <div class="modal-content" style="max-width: 600px;">
+        <h2 style="color: var(--primary); margin-bottom: 20px;">Create Purchase Order</h2>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+            <div>
+                <label style="font-weight: 600; font-size: 13px; color: var(--gray-text);">Supplier</label>
+                <select id="po-supplier-select" class="custom-input"></select>
+            </div>
+            <div>
+                <label style="font-weight: 600; font-size: 13px; color: var(--gray-text);">Expected Date</label>
+                <input type="date" id="po-expected-date" class="custom-input">
+            </div>
+        </div>
+
+        <div style="border: 1px solid var(--gray-border); padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <h4 style="margin-top: 0; margin-bottom: 10px;">Add Item</h4>
+            <div style="display: flex; gap: 10px;">
+                <select id="po-inventory-select" class="custom-input" style="flex: 2;"></select>
+                <input type="number" id="po-item-qty" class="custom-input" style="flex: 1;" placeholder="Qty">
+                <input type="number" id="po-item-cost" class="custom-input" style="flex: 1;" placeholder="Unit Cost ($)">
+                <button id="po-add-item-btn" class="custom-btn" style="background: var(--dark); margin: 0; width: auto; padding: 0 15px;">Add</button>
+            </div>
+        </div>
+
+        <div style="max-height: 150px; overflow-y: auto; border: 1px solid var(--gray-border); border-radius: 8px; margin-bottom: 20px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+                <thead>
+                    <tr style="background: var(--gray-bg); border-bottom: 1px solid var(--gray-border);">
+                        <th style="padding: 10px; text-align: left;">Item</th>
+                        <th style="padding: 10px; text-align: left;">Qty</th>
+                        <th style="padding: 10px; text-align: left;">Cost</th>
+                        <th style="padding: 10px; text-align: left;">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody id="po-cart-tbody">
+                    <!-- JS Injected -->
+                </tbody>
+            </table>
+        </div>
+
+        <div style="text-align: right; font-size: 18px; font-weight: bold; margin-bottom: 20px; color: var(--secondary);">
+            Total: $<span id="po-total-display">0.00</span>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: flex-end;">
+            <button id="cancel-po-btn" class="custom-btn" style="background: var(--gray-border); color: var(--dark); width: auto;">Cancel</button>
+            <button id="submit-po-btn" class="custom-btn" style="background: var(--primary); width: auto;">Submit Order</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Return Options Modal -->
     <div id="return-options-modal" class="modal" style="display:none; z-index: 2000;">
@@ -676,6 +817,7 @@
       <!-- Content populated by JS -->
     </div>
 
+    <script src="accounting.js"></script>
     <script src="inventory.js"></script>
     <script src="menu.js"></script>
     <script src="settings.js"></script>

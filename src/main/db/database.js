@@ -26,7 +26,11 @@ function setupSchema() {
         db.run(`CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, category_id INTEGER, name TEXT NOT NULL, price REAL NOT NULL, image_url TEXT, FOREIGN KEY (category_id) REFERENCES categories (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT UNIQUE, address TEXT)`);
         db.run(`CREATE TABLE IF NOT EXISTS drivers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT)`);
-        db.run(`CREATE TABLE IF NOT EXISTS shifts (id INTEGER PRIMARY KEY AUTOINCREMENT, cashier_name TEXT NOT NULL, start_time DATETIME DEFAULT CURRENT_TIMESTAMP, end_time DATETIME, starting_cash REAL DEFAULT 0, expected_cash REAL DEFAULT 0, actual_cash REAL DEFAULT 0, status TEXT DEFAULT 'open')`);
+        db.run(`CREATE TABLE IF NOT EXISTS shifts (id INTEGER PRIMARY KEY AUTOINCREMENT, cashier_name TEXT NOT NULL, start_time DATETIME DEFAULT CURRENT_TIMESTAMP, end_time DATETIME, starting_cash REAL DEFAULT 0, expected_cash REAL DEFAULT 0, actual_cash REAL DEFAULT 0, status TEXT DEFAULT 'open', is_audited INTEGER DEFAULT 0)`);
+
+        db.run(`ALTER TABLE shifts ADD COLUMN is_audited INTEGER DEFAULT 0`, (err) => {
+            // Ignore if exists
+        });
         db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, shift_id INTEGER, customer_id INTEGER, driver_id INTEGER, order_type TEXT DEFAULT 'Dine-in', subtotal REAL DEFAULT 0, tax_amount REAL DEFAULT 0, discount REAL DEFAULT 0, total_amount REAL NOT NULL, payment_method TEXT DEFAULT 'Cash', order_date DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'preparing', is_settled INTEGER DEFAULT 0, is_synced INTEGER DEFAULT 0, FOREIGN KEY (customer_id) REFERENCES customers (id), FOREIGN KEY (shift_id) REFERENCES shifts (id), FOREIGN KEY (driver_id) REFERENCES drivers (id))`);
 
         db.run(`ALTER TABLE orders ADD COLUMN is_synced INTEGER DEFAULT 0`, (err) => {
@@ -43,6 +47,12 @@ function setupSchema() {
         // Inventory and Recipes
         db.run(`CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, unit TEXT NOT NULL, current_stock REAL DEFAULT 0, low_stock_threshold REAL DEFAULT 10)`);
         db.run(`CREATE TABLE IF NOT EXISTS recipes (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, inventory_id INTEGER, quantity_required REAL NOT NULL, FOREIGN KEY (item_id) REFERENCES items (id), FOREIGN KEY (inventory_id) REFERENCES inventory (id))`);
+
+        // Accounting
+        db.run(`CREATE TABLE IF NOT EXISTS suppliers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, contact_name TEXT, phone TEXT, address TEXT)`);
+        db.run(`CREATE TABLE IF NOT EXISTS purchase_orders (id INTEGER PRIMARY KEY AUTOINCREMENT, supplier_id INTEGER, order_date DATETIME DEFAULT CURRENT_TIMESTAMP, expected_date DATETIME, status TEXT DEFAULT 'pending', total_amount REAL DEFAULT 0, FOREIGN KEY (supplier_id) REFERENCES suppliers (id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS purchase_order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, po_id INTEGER, inventory_id INTEGER, quantity REAL NOT NULL, unit_cost REAL NOT NULL, subtotal REAL NOT NULL, FOREIGN KEY (po_id) REFERENCES purchase_orders (id), FOREIGN KEY (inventory_id) REFERENCES inventory (id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS expenses (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT NOT NULL, amount REAL NOT NULL, description TEXT, expense_date DATETIME DEFAULT CURRENT_TIMESTAMP, shift_id INTEGER, FOREIGN KEY (shift_id) REFERENCES shifts (id))`);
 
         // Settings & Users
         db.run(`CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, store_name TEXT, tax_number TEXT, sync_url TEXT)`);
@@ -622,6 +632,157 @@ function closeShift(actualCash, shiftId) {
     });
 }
 
+// --- ACCOUNTING & PURCHASING FUNCTIONS ---
+
+function addExpense(category, amount, description, shiftId) {
+    return new Promise((resolve, reject) => {
+        db.run(`INSERT INTO expenses (category, amount, description, shift_id) VALUES (?, ?, ?, ?)`,
+        [category, amount, description, shiftId || null], function(err) {
+            if (err) reject(err); else resolve(this.lastID);
+        });
+    });
+}
+
+function getExpenses() {
+    return new Promise((resolve, reject) => {
+        db.all("SELECT e.*, s.cashier_name FROM expenses e LEFT JOIN shifts s ON e.shift_id = s.id ORDER BY e.expense_date DESC", [], (err, rows) => {
+            if (err) reject(err); else resolve(rows);
+        });
+    });
+}
+
+function addSupplier(name, contactName, phone, address) {
+    return new Promise((resolve, reject) => {
+        db.run(`INSERT INTO suppliers (name, contact_name, phone, address) VALUES (?, ?, ?, ?)`,
+        [name, contactName, phone, address], function(err) {
+            if (err) reject(err); else resolve(this.lastID);
+        });
+    });
+}
+
+function getSuppliers() {
+    return new Promise((resolve, reject) => {
+        db.all("SELECT * FROM suppliers ORDER BY name ASC", [], (err, rows) => {
+            if (err) reject(err); else resolve(rows);
+        });
+    });
+}
+
+function createPurchaseOrder(supplierId, expectedDate, items) {
+    return new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.run("BEGIN TRANSACTION");
+
+            const totalAmount = items.reduce((sum, item) => sum + (item.quantity * item.unit_cost), 0);
+
+            db.run(`INSERT INTO purchase_orders (supplier_id, expected_date, total_amount) VALUES (?, ?, ?)`,
+            [supplierId, expectedDate, totalAmount], function(err) {
+                if (err) {
+                    db.run("ROLLBACK");
+                    return reject(err);
+                }
+                const poId = this.lastID;
+                const stmt = db.prepare(`INSERT INTO purchase_order_items (po_id, inventory_id, quantity, unit_cost, subtotal) VALUES (?, ?, ?, ?, ?)`);
+
+                items.forEach(item => {
+                    stmt.run(poId, item.inventory_id, item.quantity, item.unit_cost, item.quantity * item.unit_cost);
+                });
+                stmt.finalize();
+
+                db.run("COMMIT", (err) => {
+                    if (err) {
+                        db.run("ROLLBACK");
+                        return reject(err);
+                    }
+                    resolve(poId);
+                });
+            });
+        });
+    });
+}
+
+function getPurchaseOrders() {
+    return new Promise((resolve, reject) => {
+        db.all(`SELECT po.*, s.name as supplier_name FROM purchase_orders po JOIN suppliers s ON po.supplier_id = s.id ORDER BY po.order_date DESC`, [], async (err, pos) => {
+            if (err) return reject(err);
+            if (!pos || pos.length === 0) return resolve([]);
+
+            try {
+                const posWithItems = await Promise.all(pos.map(po => {
+                    return new Promise((res, rej) => {
+                        db.all(`SELECT poi.*, i.name, i.unit FROM purchase_order_items poi JOIN inventory i ON poi.inventory_id = i.id WHERE poi.po_id = ?`, [po.id], (err, items) => {
+                            if (err) return rej(err);
+                            po.items = items;
+                            res(po);
+                        });
+                    });
+                }));
+                resolve(posWithItems);
+            } catch (e) {
+                reject(e);
+            }
+        });
+    });
+}
+
+function receivePurchaseOrder(poId) {
+    return new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.run("BEGIN TRANSACTION");
+
+            db.run(`UPDATE purchase_orders SET status = 'received' WHERE id = ? AND status = 'pending'`, [poId], function(err) {
+                if (err || this.changes === 0) {
+                    db.run("ROLLBACK");
+                    return reject(err || new Error("PO not found or already received"));
+                }
+
+                db.all(`SELECT inventory_id, quantity FROM purchase_order_items WHERE po_id = ?`, [poId], (err, items) => {
+                    if (err) {
+                        db.run("ROLLBACK");
+                        return reject(err);
+                    }
+
+                    const updatePromises = items.map(item => {
+                        return new Promise((res, rej) => {
+                            db.run(`UPDATE inventory SET current_stock = current_stock + ? WHERE id = ?`, [item.quantity, item.inventory_id], (err) => {
+                                if (err) rej(err); else res();
+                            });
+                        });
+                    });
+
+                    Promise.all(updatePromises)
+                        .then(() => {
+                            db.run("COMMIT");
+                            resolve(true);
+                        })
+                        .catch(err => {
+                            db.run("ROLLBACK");
+                            reject(err);
+                        });
+                });
+            });
+        });
+    });
+}
+
+function getShiftsForAudit() {
+    return new Promise((resolve, reject) => {
+        db.all("SELECT * FROM shifts ORDER BY start_time DESC LIMIT 50", [], (err, rows) => {
+            if (err) reject(err); else resolve(rows);
+        });
+    });
+}
+
+function auditShift(shiftId) {
+    return new Promise((resolve, reject) => {
+        db.run(`UPDATE shifts SET is_audited = 1 WHERE id = ?`, [shiftId], function(err) {
+            if (err) reject(err); else resolve(this.changes);
+        });
+    });
+}
+
+// ----------------------------------------
+
 function getZReport(shiftId) {
     return new Promise((resolve, reject) => {
         const report = {};
@@ -909,6 +1070,15 @@ function markOrdersSynced(orderIds) {
 
 module.exports = {
     initDb,
+    addExpense,
+    getExpenses,
+    addSupplier,
+    getSuppliers,
+    createPurchaseOrder,
+    getPurchaseOrders,
+    receivePurchaseOrder,
+    getShiftsForAudit,
+    auditShift,
     getCategories,
     getItems,
     getUnsyncedOrders,

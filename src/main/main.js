@@ -152,6 +152,34 @@ ipcMain.handle('export-csv', async (event, csvContent, filename) => {
     return { success: false };
 });
 
+ipcMain.handle('db-add-expense', async (event, category, amount, description, shiftId) => {
+    return await dbManager.addExpense(category, amount, description, shiftId);
+});
+ipcMain.handle('db-get-expenses', async () => {
+    return await dbManager.getExpenses();
+});
+ipcMain.handle('db-add-supplier', async (event, name, contactName, phone, address) => {
+    return await dbManager.addSupplier(name, contactName, phone, address);
+});
+ipcMain.handle('db-get-suppliers', async () => {
+    return await dbManager.getSuppliers();
+});
+ipcMain.handle('db-create-po', async (event, supplierId, expectedDate, items) => {
+    return await dbManager.createPurchaseOrder(supplierId, expectedDate, items);
+});
+ipcMain.handle('db-get-pos', async () => {
+    return await dbManager.getPurchaseOrders();
+});
+ipcMain.handle('db-receive-po', async (event, poId) => {
+    return await dbManager.receivePurchaseOrder(poId);
+});
+ipcMain.handle('db-get-shifts-audit', async () => {
+    return await dbManager.getShiftsForAudit();
+});
+ipcMain.handle('db-audit-shift', async (event, shiftId) => {
+    return await dbManager.auditShift(shiftId);
+});
+
 ipcMain.handle('db-get-inventory', async () => {
     return await dbManager.getInventory();
 });
