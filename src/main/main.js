@@ -121,6 +121,14 @@ ipcMain.handle('db-refund-order', async (event, orderId) => {
     return await dbManager.refundOrder(orderId);
 });
 
+ipcMain.handle('db-get-order-items', async (event, orderId) => {
+    return await dbManager.getOrderItems(orderId);
+});
+
+ipcMain.handle('db-refund-order-items', async (event, orderId, itemIdsToRefund) => {
+    return await dbManager.refundOrderItems(orderId, itemIdsToRefund);
+});
+
 ipcMain.handle('db-save-customer', async (event, customer) => {
     return await dbManager.saveCustomer(customer);
 });

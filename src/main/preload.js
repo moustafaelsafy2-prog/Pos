@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('api', {
     getTodayOrders: () => ipcRenderer.invoke('db-get-today-orders'),
     markOrderReady: (orderId) => ipcRenderer.invoke('db-mark-order-ready', orderId),
     refundOrder: (orderId) => ipcRenderer.invoke('db-refund-order', orderId),
+    getOrderItems: (orderId) => ipcRenderer.invoke('db-get-order-items', orderId),
+    refundOrderItems: (orderId, itemIdsToRefund) => ipcRenderer.invoke('db-refund-order-items', orderId, itemIdsToRefund),
     saveCustomer: (customer) => ipcRenderer.invoke('db-save-customer', customer),
     getDashboardStats: (startDate, endDate) => ipcRenderer.invoke('db-get-dashboard-stats', startDate, endDate),
     exportCsv: (csvContent, filename) => ipcRenderer.invoke('export-csv', csvContent, filename),

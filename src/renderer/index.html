@@ -448,12 +448,18 @@
 
     <!-- Return Options Modal -->
     <div id="return-options-modal" class="modal" style="display:none; z-index: 2000;">
-      <div class="modal-content" style="max-width: 400px; text-align: center;">
+      <div class="modal-content" style="max-width: 500px; text-align: center;">
         <h2 data-i18n="return_order">Return Order</h2>
-        <p data-i18n="return_order_prompt">How would you like to process this return?</p>
+        <p data-i18n="return_order_prompt">Select items to return or refund the entire order.</p>
         <input type="hidden" id="return-order-id">
-        <div style="display: flex; flex-direction: column; gap: 15px; margin-top: 20px;">
-          <button id="full-return-btn" class="custom-btn" style="background: var(--primary); color: white;" data-i18n="full_refund">Full Refund (Return Items to Stock)</button>
+
+        <div id="return-items-list" style="max-height: 200px; overflow-y: auto; text-align: left; margin: 15px 0; border: 1px solid var(--gray-border); padding: 10px; border-radius: 8px;">
+            <!-- Rendered via JS -->
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+          <button id="partial-return-btn" class="custom-btn" style="background: var(--secondary); color: white;">Return Selected Items</button>
+          <button id="full-return-btn" class="custom-btn" style="background: var(--primary); color: white;" data-i18n="full_refund">Full Refund (Return All to Stock)</button>
           <button id="cancel-return-btn" class="custom-btn" style="background: var(--gray-border); color: var(--dark);" data-i18n="cancel">Cancel</button>
         </div>
       </div>

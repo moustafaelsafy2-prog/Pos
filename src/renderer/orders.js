@@ -44,10 +44,59 @@ async function loadTodayOrders() {
     }
 }
 
-window.refundOrder = function(orderId) {
+window.refundOrder = async function(orderId) {
     document.getElementById('return-order-id').value = orderId;
     document.getElementById('return-options-modal').style.display = 'flex';
+
+    const itemsList = document.getElementById('return-items-list');
+    itemsList.innerHTML = 'Loading items...';
+
+    try {
+        const items = await window.api.getOrderItems(orderId);
+        itemsList.innerHTML = '';
+        if (items && items.length > 0) {
+            items.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.innerHTML = `
+                    <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+                        <input type="checkbox" class="refund-item-cb" value="${item.id}" checked>
+                        <span>${item.quantity}x ${item.name} ($${item.subtotal.toFixed(2)})</span>
+                    </label>
+                `;
+                itemsList.appendChild(itemDiv);
+            });
+        } else {
+            itemsList.innerHTML = 'No items available to return.';
+        }
+    } catch(e) {
+        itemsList.innerHTML = 'Error loading items.';
+        console.error(e);
+    }
 }
+
+document.getElementById('partial-return-btn').addEventListener('click', async () => {
+    const orderId = document.getElementById('return-order-id').value;
+    if (!orderId) return;
+
+    const checkboxes = document.querySelectorAll('.refund-item-cb:checked');
+    const selectedItemIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+    if (selectedItemIds.length === 0) {
+        return alert("Please select at least one item to return.");
+    }
+
+    if (!confirm("Are you sure you want to refund the selected items? They will be returned to stock.")) return;
+
+    try {
+        await window.api.refundOrderItems(orderId, selectedItemIds);
+        alert("Selected items refunded successfully.");
+        document.getElementById('return-options-modal').style.display = 'none';
+        loadTodayOrders();
+    } catch (e) {
+        console.error("Failed to refund items", e);
+        alert("Failed to refund items.");
+    }
+});
 
 document.getElementById('cancel-return-btn').addEventListener('click', () => {
     document.getElementById('return-options-modal').style.display = 'none';

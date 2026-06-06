@@ -33,7 +33,11 @@ function setupSchema() {
             // Ignore error if column already exists
         });
 
-        db.run(`CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, item_id INTEGER, quantity INTEGER NOT NULL, subtotal REAL NOT NULL, notes TEXT, FOREIGN KEY (order_id) REFERENCES orders (id), FOREIGN KEY (item_id) REFERENCES items (id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, item_id INTEGER, quantity INTEGER NOT NULL, subtotal REAL NOT NULL, notes TEXT, status TEXT, FOREIGN KEY (order_id) REFERENCES orders (id), FOREIGN KEY (item_id) REFERENCES items (id))`);
+
+        db.run(`ALTER TABLE order_items ADD COLUMN status TEXT`, (err) => {
+            // Ignore if exists
+        });
         db.run(`CREATE TABLE IF NOT EXISTS license (id INTEGER PRIMARY KEY AUTOINCREMENT, serial_key TEXT, activated_at DATETIME, expires_at DATETIME, machine_id TEXT)`);
 
         // Inventory and Recipes
@@ -187,6 +191,88 @@ function getTodayOrders() {
                 ORDER BY o.id DESC`, [], (err, rows) => {
             if (err) reject(err);
             else resolve(rows);
+        });
+    });
+}
+
+function getOrderItems(orderId) {
+    return new Promise((resolve, reject) => {
+        db.all(`
+            SELECT oi.*, i.name
+            FROM order_items oi
+            JOIN items i ON oi.item_id = i.id
+            WHERE oi.order_id = ? AND (oi.status != 'refunded' OR oi.status IS NULL)
+        `, [orderId], (err, rows) => {
+            if (err) reject(err); else resolve(rows);
+        });
+    });
+}
+
+function refundOrderItems(orderId, itemIdsToRefund) {
+    return new Promise((resolve, reject) => {
+        if (!itemIdsToRefund || itemIdsToRefund.length === 0) return resolve(false);
+
+        db.serialize(() => {
+            db.run("BEGIN TRANSACTION");
+
+            // Mark specific items as refunded
+            const placeholders = itemIdsToRefund.map(() => '?').join(',');
+            db.run(`UPDATE order_items SET status = 'refunded' WHERE id IN (${placeholders})`, itemIdsToRefund, function(err) {
+                if (err) {
+                    db.run("ROLLBACK");
+                    return reject(err);
+                }
+
+                // Fetch those specific items to restore inventory and calculate refund amount
+                db.all(`SELECT item_id, quantity, subtotal FROM order_items WHERE id IN (${placeholders})`, itemIdsToRefund, (err, items) => {
+                    if (err) {
+                        db.run("ROLLBACK");
+                        return reject(err);
+                    }
+
+                    let refundAmount = items.reduce((sum, item) => sum + item.subtotal, 0);
+
+                    // Update order totals
+                    db.run(`UPDATE orders SET subtotal = subtotal - ?, total_amount = total_amount - ? WHERE id = ?`,
+                    [refundAmount, refundAmount * 1.15, orderId], (err) => {
+                        if (err) {
+                            db.run("ROLLBACK");
+                            return reject(err);
+                        }
+
+                        // Restore inventory
+                        const restorePromises = items.map(orderItem => {
+                            return new Promise((res, rej) => {
+                                db.all("SELECT inventory_id, quantity_required FROM recipes WHERE item_id = ?", [orderItem.item_id], (err, recipeItems) => {
+                                    if (err) return rej(err);
+                                    if (!recipeItems || recipeItems.length === 0) return res();
+
+                                    const stockUpdates = recipeItems.map(ri => {
+                                        return new Promise((stockRes, stockRej) => {
+                                            const qtyToRestore = ri.quantity_required * orderItem.quantity;
+                                            db.run("UPDATE inventory SET current_stock = current_stock + ? WHERE id = ?", [qtyToRestore, ri.inventory_id], (err) => {
+                                                if (err) stockRej(err); else stockRes();
+                                            });
+                                        });
+                                    });
+
+                                    Promise.all(stockUpdates).then(res).catch(rej);
+                                });
+                            });
+                        });
+
+                        Promise.all(restorePromises)
+                            .then(() => {
+                                db.run("COMMIT");
+                                resolve(true);
+                            })
+                            .catch(err => {
+                                db.run("ROLLBACK");
+                                reject(err);
+                            });
+                    });
+                });
+            });
         });
     });
 }
