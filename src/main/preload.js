@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
     getCategories: () => ipcRenderer.invoke('db-get-categories'),
     getItems: () => ipcRenderer.invoke('db-get-items'),
-    submitOrder: (cart, orderType, customerId, paymentMethod, discount) => ipcRenderer.invoke('db-submit-order', cart, orderType, customerId, paymentMethod, discount),
+    submitOrder: (cart, orderType, customerId, paymentMethod, discount, shiftId, pointsRedeemed, tableId) => ipcRenderer.invoke('db-submit-order', cart, orderType, customerId, paymentMethod, discount, shiftId, pointsRedeemed, tableId),
     getCustomer: (phone) => ipcRenderer.invoke('db-get-customer', phone),
     getAllCustomers: () => ipcRenderer.invoke('db-get-all-customers'),
     getCustomerOrders: (customerId) => ipcRenderer.invoke('db-get-customer-orders', customerId),

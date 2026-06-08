@@ -1,12 +1,13 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const { machineIdSync } = require('node-machine-id');
+const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
 let db;
 
-// Pre-computed hash for 'admin12345'
+// Secure pre-computed hash for the master password
 const MASTER_PASSWORD_HASH = "$2b$08$pPJu872WBb8a/TJA8iW8LO7n8AWVnQpDmRNa1VRWnmxkE1din41h2";
 
 function initDb(userDataPath) {
@@ -32,11 +33,12 @@ function setupSchema() {
         db.run(`ALTER TABLE shifts ADD COLUMN is_audited INTEGER DEFAULT 0`, (err) => {
             // Ignore if exists
         });
-        db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, shift_id INTEGER, customer_id INTEGER, driver_id INTEGER, order_type TEXT DEFAULT 'Dine-in', subtotal REAL DEFAULT 0, tax_amount REAL DEFAULT 0, discount REAL DEFAULT 0, total_amount REAL NOT NULL, payment_method TEXT DEFAULT 'Cash', order_date DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'preparing', is_settled INTEGER DEFAULT 0, is_synced INTEGER DEFAULT 0, FOREIGN KEY (customer_id) REFERENCES customers (id), FOREIGN KEY (shift_id) REFERENCES shifts (id), FOREIGN KEY (driver_id) REFERENCES drivers (id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS restaurant_tables (id INTEGER PRIMARY KEY AUTOINCREMENT, table_number TEXT NOT NULL, status TEXT DEFAULT 'available', current_order_id INTEGER, FOREIGN KEY (current_order_id) REFERENCES orders (id))`);
 
-        db.run(`ALTER TABLE orders ADD COLUMN is_synced INTEGER DEFAULT 0`, (err) => {
-            // Ignore error if column already exists
-        });
+        db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, shift_id INTEGER, customer_id INTEGER, driver_id INTEGER, table_id INTEGER, order_type TEXT DEFAULT 'Dine-in', subtotal REAL DEFAULT 0, tax_amount REAL DEFAULT 0, discount REAL DEFAULT 0, total_amount REAL NOT NULL, payment_method TEXT DEFAULT 'Cash', order_date DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'preparing', is_settled INTEGER DEFAULT 0, is_synced INTEGER DEFAULT 0, FOREIGN KEY (customer_id) REFERENCES customers (id), FOREIGN KEY (shift_id) REFERENCES shifts (id), FOREIGN KEY (driver_id) REFERENCES drivers (id), FOREIGN KEY (table_id) REFERENCES restaurant_tables (id))`);
+
+        db.run(`ALTER TABLE orders ADD COLUMN is_synced INTEGER DEFAULT 0`, (err) => {});
+        db.run(`ALTER TABLE orders ADD COLUMN table_id INTEGER`, (err) => {});
 
         db.run(`CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, item_id INTEGER, quantity INTEGER NOT NULL, subtotal REAL NOT NULL, notes TEXT, status TEXT, FOREIGN KEY (order_id) REFERENCES orders (id), FOREIGN KEY (item_id) REFERENCES items (id))`);
 
@@ -54,6 +56,7 @@ function setupSchema() {
         db.run(`CREATE TABLE IF NOT EXISTS purchase_orders (id INTEGER PRIMARY KEY AUTOINCREMENT, supplier_id INTEGER, order_date DATETIME DEFAULT CURRENT_TIMESTAMP, expected_date DATETIME, status TEXT DEFAULT 'pending', total_amount REAL DEFAULT 0, FOREIGN KEY (supplier_id) REFERENCES suppliers (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS purchase_order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, po_id INTEGER, inventory_id INTEGER, quantity REAL NOT NULL, unit_cost REAL NOT NULL, subtotal REAL NOT NULL, FOREIGN KEY (po_id) REFERENCES purchase_orders (id), FOREIGN KEY (inventory_id) REFERENCES inventory (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS expenses (id INTEGER PRIMARY KEY AUTOINCREMENT, category TEXT NOT NULL, amount REAL NOT NULL, description TEXT, expense_date DATETIME DEFAULT CURRENT_TIMESTAMP, shift_id INTEGER, FOREIGN KEY (shift_id) REFERENCES shifts (id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS wastage (id INTEGER PRIMARY KEY AUTOINCREMENT, inventory_id INTEGER, quantity REAL NOT NULL, reason TEXT, log_date DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (inventory_id) REFERENCES inventory (id))`);
 
         // Settings & Users
         db.run(`CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY AUTOINCREMENT, store_name TEXT, tax_number TEXT, sync_url TEXT)`);

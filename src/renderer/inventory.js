@@ -106,5 +106,69 @@ window.deleteInventory = async function(id) {
     }
 }
 
+// --- Wastage Logic ---
+async function loadWastageData() {
+    try {
+        const inventory = await window.api.getInventory();
+        const select = document.getElementById('wastage-inventory-select');
+        if (select) {
+            select.innerHTML = '<option value="">Select Item to Spoil...</option>';
+            inventory.forEach(i => {
+                select.innerHTML += `<option value="${i.id}">${i.name} (${i.unit})</option>`;
+            });
+        }
+
+        const logs = await window.api.getWastage();
+        const tbody = document.getElementById('wastage-tbody');
+        if (tbody) {
+            tbody.innerHTML = '';
+            if (!logs || logs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--gray-text);">No wastage logs found.</td></tr>`;
+            } else {
+                logs.forEach(log => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="color: var(--gray-text);">${new Date(log.log_date).toLocaleDateString()}</td>
+                        <td style="font-weight: 600;">${log.name}</td>
+                        <td style="color: #D32F2F; font-weight: bold;">-${log.quantity} ${log.unit}</td>
+                        <td style="color: var(--gray-text);">${log.reason}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+    } catch (e) {
+        console.error("Failed to load wastage data:", e);
+    }
+}
+
+document.getElementById('add-wastage-btn').addEventListener('click', async () => {
+    const invId = parseInt(document.getElementById('wastage-inventory-select').value);
+    const qty = parseFloat(document.getElementById('wastage-qty').value);
+    const reason = document.getElementById('wastage-reason').value.trim();
+
+    if (isNaN(invId) || isNaN(qty) || qty <= 0 || !reason) {
+        return alert("Please fill all wastage fields correctly.");
+    }
+
+    try {
+        await window.api.addWastage(invId, qty, reason);
+        document.getElementById('wastage-qty').value = '';
+        document.getElementById('wastage-reason').value = '';
+        alert("Wastage logged and stock updated.");
+        loadInventoryData();
+    } catch (e) {
+        console.error(e);
+        alert("Failed to log wastage.");
+    }
+});
+
+// Wrap load to include wastage
+const originalLoadInventory = loadInventoryData;
+loadInventoryData = async function() {
+    await originalLoadInventory();
+    await loadWastageData();
+}
+
 // Expose globally for tab switching
 window.loadInventoryData = loadInventoryData;

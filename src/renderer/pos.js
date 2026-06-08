@@ -281,6 +281,147 @@ document.getElementById('search-cust-btn').addEventListener('click', async () =>
 
 let currentPaymentMethod = 'Cash';
 
+// --- Table Map Management ---
+if (document.getElementById('manage-tables-btn')) {
+    document.getElementById('manage-tables-btn').addEventListener('click', () => {
+        document.getElementById('table-map-modal').style.display = 'flex';
+        renderTableMap();
+    });
+
+    document.getElementById('close-table-map-btn').addEventListener('click', () => {
+        document.getElementById('table-map-modal').style.display = 'none';
+    });
+
+    document.getElementById('add-table-btn').addEventListener('click', async () => {
+        const tableName = document.getElementById('new-table-name').value.trim();
+        if (!tableName) return;
+        try {
+            await window.api.addTable(tableName);
+            document.getElementById('new-table-name').value = '';
+            await loadTables();
+            renderTableMap();
+        } catch(e) {
+            console.error(e);
+            alert("Failed to add table");
+        }
+    });
+}
+
+function renderTableMap() {
+    const grid = document.getElementById('table-map-grid');
+    if(!grid) return;
+    grid.innerHTML = '';
+
+    tablesList.forEach(t => {
+        const div = document.createElement('div');
+        div.style.padding = '20px 10px';
+        div.style.borderRadius = '12px';
+        div.style.cursor = 'pointer';
+        div.style.fontWeight = 'bold';
+
+        if (t.status === 'occupied') {
+            div.style.background = 'var(--primary)';
+            div.style.color = 'white';
+            div.innerHTML = `${t.table_number}<br><span style="font-size:10px;font-weight:normal;">Occupied</span>`;
+        } else {
+            div.style.background = 'white';
+            div.style.color = 'var(--dark)';
+            div.style.border = '1px solid var(--gray-border)';
+            div.innerHTML = `${t.table_number}<br><span style="font-size:10px;font-weight:normal;">Free</span>`;
+        }
+
+        div.onclick = () => {
+            if (t.status === 'occupied') {
+                if (confirm(`Table ${t.table_number} is currently occupied. Do you want to open split-bill options?`)) {
+                    openSplitBill(t.current_order_id, t.table_number);
+                }
+            } else {
+                document.getElementById('dinein-table-select').value = t.id;
+                document.getElementById('table-map-modal').style.display = 'none';
+                document.querySelector('input[value="Dine-in"]').checked = true;
+            }
+        };
+
+        grid.appendChild(div);
+    });
+}
+
+async function openSplitBill(orderId, tableNumber) {
+    if (!orderId) return alert("No active order found on this table.");
+
+    document.getElementById('table-map-modal').style.display = 'none';
+    const splitModal = document.getElementById('split-bill-modal');
+    splitModal.style.display = 'flex';
+
+    const itemsList = document.getElementById('split-items-list');
+    itemsList.innerHTML = 'Loading items...';
+
+    try {
+        const items = await window.api.getOrderItems(orderId);
+        itemsList.innerHTML = '';
+        if (items && items.length > 0) {
+            items.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.innerHTML = `
+                    <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+                        <input type="checkbox" class="split-item-cb" value="${item.id}" data-item='${JSON.stringify(item)}'>
+                        <span>${item.quantity}x ${item.name} ($${item.subtotal.toFixed(2)})</span>
+                    </label>
+                `;
+                itemsList.appendChild(itemDiv);
+            });
+            document.getElementById('confirm-split-btn').setAttribute('data-order-id', orderId);
+        } else {
+            itemsList.innerHTML = 'No items available to split.';
+        }
+    } catch(e) {
+        itemsList.innerHTML = 'Error loading items.';
+        console.error(e);
+    }
+}
+
+if (document.getElementById('cancel-split-btn')) {
+    document.getElementById('cancel-split-btn').addEventListener('click', () => {
+        document.getElementById('split-bill-modal').style.display = 'none';
+    });
+
+    document.getElementById('confirm-split-btn').addEventListener('click', async (e) => {
+        const orderId = parseInt(e.target.getAttribute('data-order-id'));
+        const checkboxes = document.querySelectorAll('.split-item-cb:checked');
+        const selectedItemIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+
+        if (selectedItemIds.length === 0) {
+            return alert("Please select at least one item to split.");
+        }
+
+        if (!confirm("This will refund these items from the original bill and load them into a new cart to pay separately. Continue?")) return;
+
+        try {
+            await window.api.refundOrderItems(orderId, selectedItemIds);
+
+            cart = [];
+            Array.from(checkboxes).forEach(cb => {
+                const parsed = JSON.parse(cb.getAttribute('data-item'));
+                cart.push({
+                    id: parsed.item_id,
+                    cartItemId: Date.now() + Math.random(),
+                    name: parsed.name,
+                    price: parsed.subtotal / parsed.quantity,
+                    qty: parsed.quantity,
+                    notes: parsed.notes
+                });
+            });
+
+            renderCart();
+            document.getElementById('split-bill-modal').style.display = 'none';
+            alert("Items split successfully. Please checkout the new cart.");
+        } catch(err) {
+            console.error(err);
+            alert("Failed to split items.");
+        }
+    });
+}
+
 document.getElementById('checkout-btn').addEventListener('click', async () => {
     if (cart.length === 0) {
         alert(window.t('cart_empty'));
@@ -368,31 +509,84 @@ document.getElementById('confirm-payment-btn').addEventListener('click', async (
     }
 
     try {
-        const result = await window.api.submitOrder(cart, orderType, customerId, currentPaymentMethod, currentDiscount, currentShiftId);
+        let tableId = null;
+        if (orderType === 'Dine-in') {
+            const tableSelect = document.getElementById('dinein-table-select');
+            if (tableSelect && tableSelect.value) {
+                tableId = parseInt(tableSelect.value);
+            }
+        }
 
-        // Print Receipt
-        printReceipt(result.orderId, cart, orderType, result.subtotal, currentDiscount, result.taxAmount, result.total, currentPaymentMethod);
+        const processCheckout = async () => {
+            // Note: pointsRedeemed variable requires initialization, let's use 0 safely or global
+            const currentPointsRedeemed = typeof pointsRedeemed !== 'undefined' ? pointsRedeemed : 0;
+            const result = await window.api.submitOrder(cart, orderType, customerId, currentPaymentMethod, currentDiscount, currentShiftId, currentPointsRedeemed, tableId);
 
-        const translatedType = orderType === 'Dine-in' ? window.t('dine_in') : (orderType === 'Takeaway' ? window.t('takeaway') : window.t('delivery'));
-        alert(window.t('order_success', { id: result.orderId, type: translatedType, total: result.total.toFixed(2) }));
+            if (tableId) {
+                if (typeof loadTables === 'function') await loadTables();
+                if (typeof renderTableMap === 'function') renderTableMap();
+            }
 
-        // Reset Everything
-        cart = [];
-        currentDiscount = 0;
-        renderCart();
+            // Print Receipt
+            printReceipt(result.orderId, cart, orderType, result.subtotal, currentDiscount, result.taxAmount, result.total, currentPaymentMethod);
 
-        document.getElementById('cust-phone').value = "";
-        document.getElementById('cust-name').value = "";
-        document.getElementById('cust-address').value = "";
-        document.getElementById('cust-id').value = "";
-        document.querySelector('input[value="Dine-in"]').checked = true;
-        document.getElementById('customer-info-panel').style.display = 'none';
+            // Print Kitchen / Station Tickets
+            setTimeout(() => {
+                if (typeof printStationTickets === 'function') printStationTickets(result.orderId, cart, orderType);
+            }, 500);
 
-        document.getElementById('payment-modal').style.display = 'none';
+            const translatedType = orderType === 'Dine-in' ? window.t('dine_in') : (orderType === 'Takeaway' ? window.t('takeaway') : window.t('delivery'));
+            alert(window.t('order_success', { id: result.orderId, type: translatedType, total: result.total.toFixed(2) }));
+
+            // Reset Everything
+            cart = [];
+            currentDiscount = 0;
+            if (typeof pointsRedeemed !== 'undefined') pointsRedeemed = 0;
+            window.currentCustomerPoints = 0;
+            renderCart();
+
+            document.getElementById('cust-phone').value = "";
+            document.getElementById('cust-name').value = "";
+            document.getElementById('cust-address').value = "";
+            document.getElementById('cust-id').value = "";
+            const loyaltyContainer = document.getElementById('loyalty-points-container');
+            if (loyaltyContainer) loyaltyContainer.style.display = 'none';
+            document.querySelector('input[value="Dine-in"]').checked = true;
+            document.getElementById('customer-info-panel').style.display = 'none';
+
+            document.getElementById('payment-modal').style.display = 'none';
+        };
+
+        if (currentPaymentMethod === 'Card') {
+            // Simulate Payment Terminal Handshake
+            document.getElementById('payment-modal').style.display = 'none';
+            const terminalModal = document.getElementById('terminal-modal');
+            if (terminalModal) terminalModal.style.display = 'flex';
+
+            // Simulate 3 seconds of terminal processing time
+            let terminalTimer = setTimeout(() => {
+                if (terminalModal) terminalModal.style.display = 'none';
+                processCheckout();
+            }, 3000);
+
+            const cancelBtn = document.getElementById('cancel-terminal-btn');
+            if (cancelBtn) {
+                cancelBtn.onclick = () => {
+                    clearTimeout(terminalTimer);
+                    if (terminalModal) terminalModal.style.display = 'none';
+                    document.getElementById('payment-modal').style.display = 'flex';
+                    alert("Terminal transaction cancelled by cashier.");
+                };
+            }
+        } else {
+            await processCheckout();
+        }
 
     } catch (e) {
         console.error("Checkout failed:", e);
         alert(window.t('checkout_fail'));
+        const terminalModal = document.getElementById('terminal-modal');
+        if (terminalModal) terminalModal.style.display = 'none';
     }
 });
 
@@ -440,6 +634,62 @@ async function printReceipt(orderId, orderCart, type, subtotal, discount, tax, t
     } catch (e) {
         console.error("Failed to print receipt", e);
     }
+}
+
+function printStationTickets(orderId, orderCart, type) {
+    // Group items by printer_name
+    const printerGroups = {};
+    orderCart.forEach(item => {
+        const printer = item.printer_name || 'Kitchen';
+        if (!printerGroups[printer]) {
+            printerGroups[printer] = [];
+        }
+        printerGroups[printer].push(item);
+    });
+
+    const kContainer = document.getElementById('kitchen-receipt-container');
+    if (!kContainer) return;
+
+    let fullHtml = '';
+
+    for (const [printer, items] of Object.entries(printerGroups)) {
+        let itemsHtml = '';
+        items.forEach(item => {
+            itemsHtml += `
+                <div style="font-size: 16px; font-weight: bold; margin-bottom: 5px;">
+                    ${item.qty}x ${item.name}
+                </div>
+            `;
+            if (item.notes) {
+                itemsHtml += `<div style="font-size: 14px; margin-left: 10px; font-weight: normal; font-style: italic;">- Notes: ${item.notes}</div>`;
+            }
+            itemsHtml += `<div class="receipt-divider"></div>`;
+        });
+
+        fullHtml += `
+            <div style="text-align: center; font-family: monospace; padding-bottom: 20px; page-break-after: always;">
+                <h1 style="margin: 0; font-size: 24px;">${printer.toUpperCase()} TICKET</h1>
+                <h2 style="margin: 5px 0;">Order #${orderId} - ${type}</h2>
+                <div>Time: ${new Date().toLocaleTimeString()}</div>
+                <div class="receipt-divider"></div>
+                <div style="text-align: left; margin-top: 10px;">
+                    ${itemsHtml}
+                </div>
+            </div>
+        `;
+    }
+
+    kContainer.innerHTML = fullHtml;
+
+    document.getElementById('receipt-container').style.display = 'none';
+    const zReportContainer = document.getElementById('z-report-container');
+    if (zReportContainer) zReportContainer.style.display = 'none';
+    kContainer.style.display = 'block';
+
+    window.print();
+
+    kContainer.style.display = 'none';
+    document.getElementById('receipt-container').style.display = 'block'; // Restore default
 }
 
 // Shift Management Logic
