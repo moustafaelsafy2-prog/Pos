@@ -11,6 +11,7 @@ async function checkLicense() {
             licenseStatusSpan.style.color = "#4CAF50";
             modal.style.display = "none";
             // Do not show app container yet, let login screen handle it
+            document.getElementById('login-screen').style.display = 'flex';
         } else {
             licenseStatusSpan.setAttribute('data-i18n', 'unlicensed');
             licenseStatusSpan.textContent = window.t('unlicensed');
