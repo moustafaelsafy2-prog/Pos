@@ -19,8 +19,8 @@ async function initPOS() {
             currentShiftId = shift.id;
             window.currentShiftId = shift.id; // Expose globally for other modules like accounting
         } else {
-            // Block UI with Open Shift Modal
-            document.getElementById('open-shift-modal').style.display = 'flex';
+            // User must click Start Shift button to open it
+            // document.getElementById('open-shift-modal').style.display = 'flex';
         }
 
         categories = await window.api.getCategories();
