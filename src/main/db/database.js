@@ -511,10 +511,10 @@ function verifyMasterPassword(password) {
     });
 }
 
-function generateLicenseToken(days) {
+function generateLicenseToken(days, targetMachineId) {
     return new Promise((resolve, reject) => {
         try {
-            const machineId = machineIdSync();
+            const machineId = targetMachineId || machineIdSync();
             const expirationDate = new Date();
             expirationDate.setDate(expirationDate.getDate() + parseInt(days));
 
