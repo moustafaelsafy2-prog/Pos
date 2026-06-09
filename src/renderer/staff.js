@@ -29,7 +29,8 @@ async function loadStaffData() {
 
 document.getElementById('add-staff-btn').addEventListener('click', async () => {
     const name = document.getElementById('new-staff-name').value.trim();
-    const pin = document.getElementById('new-staff-pin').value.trim();
+    const username = document.getElementById('new-staff-username').value.trim();
+    const password = document.getElementById('new-staff-pin').value.trim();
     const role = document.getElementById('new-staff-role').value;
 
     if (!name || !pin || pin.length !== 4) {
@@ -37,9 +38,10 @@ document.getElementById('add-staff-btn').addEventListener('click', async () => {
     }
 
     try {
-        await window.api.addUser(name, pin, role);
+        await window.api.addUser(name, username, password, role);
         alert(window.t('save_success') || "Saved successfully!");
         document.getElementById('new-staff-name').value = '';
+        document.getElementById('new-staff-username').value = '';
         document.getElementById('new-staff-pin').value = '';
         loadStaffData();
     } catch (e) {

@@ -109,7 +109,9 @@ function setupSchema() {
             // Ignore error if column already exists
         });
 
-        db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, pin TEXT UNIQUE NOT NULL, role TEXT DEFAULT 'cashier')`);
+        db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT DEFAULT 'cashier')`);
+        db.run(`ALTER TABLE users ADD COLUMN username TEXT UNIQUE`, (err)=>{});
+        db.run(`ALTER TABLE users ADD COLUMN password TEXT`, (err)=>{});
 
         // Seed initial data if empty
         db.get('SELECT COUNT(*) AS count FROM categories', [], (err, row) => {
@@ -155,8 +157,8 @@ function setupSchema() {
         // Seed Default Admin
         db.get('SELECT COUNT(*) AS count FROM users', [], (err, row) => {
             if (!err && row.count === 0) {
-                const hashedPin = bcrypt.hashSync('0000', 8);
-                db.run(`INSERT INTO users (name, pin, role) VALUES ('Admin', ?, 'admin')`, [hashedPin]);
+                const hashedPassword = bcrypt.hashSync('0000', 8);
+                db.run(`INSERT INTO users (name, username, password, role) VALUES ('Admin', 'admin', ?, 'admin')`, [hashedPassword]);
             }
         });
     });
@@ -475,13 +477,12 @@ function saveSettings(storeName, taxNumber, syncUrl) {
     });
 }
 
-function loginUser(pin) {
+function loginUser(username, password) {
     return new Promise((resolve, reject) => {
-        db.all("SELECT * FROM users", [], (err, rows) => {
+        db.all("SELECT * FROM users WHERE username = ?", [username], (err, rows) => {
             if (err) return reject(err);
-
-            // Compare entered pin against all hashed pins
-            const user = rows.find(row => bcrypt.compareSync(pin, row.pin));
+            if (!rows || rows.length === 0) return resolve(null);
+            const user = rows.find(row => bcrypt.compareSync(password, row.password) || bcrypt.compareSync(password, row.pin || ''));
             resolve(user || null);
         });
     });
@@ -496,10 +497,10 @@ function getUsers() {
     });
 }
 
-function addUser(name, pin, role) {
+function addUser(name, username, password, role) {
     return new Promise((resolve, reject) => {
-        const hashedPin = bcrypt.hashSync(pin, 8);
-        db.run(`INSERT INTO users (name, pin, role) VALUES (?, ?, ?)`, [name, hashedPin, role], function(err) {
+        const hashedPassword = bcrypt.hashSync(password, 8);
+        db.run(`INSERT INTO users (name, username, password, role) VALUES (?, ?, ?, ?)`, [name, username, hashedPassword, role], function(err) {
             if (err) reject(err); else resolve(this.lastID);
         });
     });

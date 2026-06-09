@@ -508,16 +508,16 @@ ipcMain.handle('db-save-settings', async (event, storeName, taxNumber, syncUrl) 
     return await callDb('saveSettings', storeName, taxNumber, syncUrl);
 });
 
-ipcMain.handle('db-login-user', async (event, pin) => {
-    return await callDb('loginUser', pin);
+ipcMain.handle('db-login-user', async (event, username, password) => {
+    return await callDb('loginUser', username, password);
 });
 
 ipcMain.handle('db-get-users', async () => {
     return await callDb('getUsers', );
 });
 
-ipcMain.handle('db-add-user', async (event, name, pin, role) => {
-    return await callDb('addUser', name, pin, role);
+ipcMain.handle('db-add-user', async (event, name, username, password, role) => {
+    return await callDb('addUser', name, username, password, role);
 });
 
 ipcMain.handle('db-delete-user', async (event, id) => {

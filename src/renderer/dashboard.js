@@ -86,9 +86,10 @@ document.getElementById('cancel-pin-btn').addEventListener('click', () => {
 });
 
 document.getElementById('login-btn').addEventListener('click', async () => {
-    const pin = document.getElementById('login-pin-input').value;
+    const username = document.getElementById('login-username-input').value.trim();
+    const password = document.getElementById('login-password-input').value.trim();
     try {
-        const user = await window.api.loginUser(pin);
+        const user = await window.api.loginUser(username, password);
         if (user) {
             window.currentUser = user;
             document.getElementById('login-screen').style.display = 'none';
@@ -101,7 +102,7 @@ document.getElementById('login-btn').addEventListener('click', async () => {
             if(window.initPOS) window.initPOS();
         } else {
             alert(window.t('invalid_pin') || 'Invalid PIN');
-            document.getElementById('login-pin-input').value = '';
+            document.getElementById('login-password-input').value = '';
         }
     } catch (e) {
         console.error("Login failed:", e);
