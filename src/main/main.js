@@ -47,7 +47,8 @@ async function callDb(methodName, ...args) {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Content-Length': Buffer.byteLength(postData)
+                    'Content-Length': Buffer.byteLength(postData),
+                    'x-rpc-secret': 'local-restaurant-secret'
                 }
             }, (res) => {
                 let data = '';
@@ -67,6 +68,12 @@ async function callDb(methodName, ...args) {
     }
 }
 
+
+// --- LOCAL RPC SERVER & WAITER APP (PORT 8080) ---
+const http = require('http');
+
+
+
 function startRpcServer() {
     const config = getNetworkConfig();
     if (config.mode !== 'server') return;
@@ -81,7 +88,163 @@ function startRpcServer() {
             return res.end();
         }
 
+        // Waiter App UI
+        if (req.url === '/' && req.method === 'GET') {
+            res.writeHead(200, { 'Content-Type': 'text/html' });
+            res.end(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>Waiter App</title>
+                    <style>
+                        body { font-family: sans-serif; padding: 20px; }
+                        .item { padding: 10px; border: 1px solid #ccc; margin-bottom: 10px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center;}
+                        button { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px;}
+                        .cart { margin-top: 20px; padding: 10px; background: #f9f9f9; border: 1px solid #ddd; }
+                    </style>
+                </head>
+                <body>
+                    <h2>Menu</h2>
+                    <div id="menu">Loading...</div>
+                    <div class="cart">
+                        <h3>Cart <span id="cart-total">$0.00</span></h3>
+                        <ul id="cart-items"></ul>
+                        <label>Table No:</label>
+                        <select id="table-select"><option value="">No Table</option></select><br><br>
+                        <button onclick="submitOrder()">Submit Order</button>
+                    </div>
+
+                    <script>
+                        let cart = [];
+                        let menuItems = [];
+
+                        async function loadMenu() {
+                            const res = await fetch('/api/items');
+                            menuItems = await res.json();
+                            const menuDiv = document.getElementById('menu');
+                            menuDiv.innerHTML = '';
+                            menuItems.forEach(item => {
+                                const div = document.createElement('div');
+                                div.className = 'item';
+                                div.innerHTML = "<span>" + item.name + " - $" + item.price.toFixed(2) + "</span><button onclick='addToCart(" + item.id + ")'>Add</button>";
+                                menuDiv.appendChild(div);
+                            });
+                        }
+
+                        async function loadTables() {
+                            const res = await fetch('/api/tables');
+                            const tables = await res.json();
+                            const select = document.getElementById('table-select');
+                            tables.forEach(t => {
+                                select.innerHTML += "<option value='" + t.id + "'>" + t.table_number + "</option>";
+                            });
+                        }
+
+                        function addToCart(id) {
+                            const item = menuItems.find(i => i.id === id);
+                            const existing = cart.find(c => c.id === id);
+                            if (existing) {
+                                existing.qty++;
+                            } else {
+                                cart.push({
+                                    id: item.id,
+                                    cartItemId: Date.now() + Math.random(),
+                                    name: item.name,
+                                    price: item.price,
+                                    qty: 1
+                                });
+                            }
+                            renderCart();
+                        }
+
+                        function renderCart() {
+                            const ul = document.getElementById('cart-items');
+                            ul.innerHTML = '';
+                            let total = 0;
+                            cart.forEach(c => {
+                                total += c.price * c.qty;
+                                ul.innerHTML += "<li>" + c.qty + "x " + c.name + " ($" + (c.price * c.qty).toFixed(2) + ")</li>";
+                            });
+                            document.getElementById('cart-total').innerText = '$' + total.toFixed(2);
+                        }
+
+                        async function submitOrder() {
+                            if (cart.length === 0) return alert('Cart is empty');
+                            const tableId = document.getElementById('table-select').value;
+
+                            const res = await fetch('/api/submit', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ cart, tableId })
+                            });
+
+                            if (res.ok) {
+                                alert('Order Submitted!');
+                                cart = [];
+                                renderCart();
+                            } else {
+                                alert('Failed to submit order');
+                            }
+                        }
+
+                        loadMenu();
+                        loadTables();
+                    </script>
+                </body>
+                </html>
+            `);
+            return;
+        }
+
+        if (req.url === '/api/items' && req.method === 'GET') {
+            try {
+                const items = await dbManager.getItems();
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(items));
+            } catch (e) {
+                res.writeHead(500);
+                res.end(JSON.stringify({ error: e.message }));
+            }
+            return;
+        }
+
+        if (req.url === '/api/tables' && req.method === 'GET') {
+            try {
+                const tables = await dbManager.getTables();
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify(tables));
+            } catch (e) {
+                res.writeHead(500);
+                res.end(JSON.stringify({ error: e.message }));
+            }
+            return;
+        }
+
+        if (req.url === '/api/submit' && req.method === 'POST') {
+            let body = '';
+            req.on('data', chunk => body += chunk.toString());
+            req.on('end', async () => {
+                try {
+                    const data = JSON.parse(body);
+                    await dbManager.submitOrder(data.cart, 'Dine-in', null, 'Unpaid', 0, null, 0, data.tableId || null);
+                    res.writeHead(200, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: true }));
+                } catch (e) {
+                    console.error("Waiter app order error:", e);
+                    res.writeHead(500);
+                    res.end(JSON.stringify({ error: e.message }));
+                }
+            });
+            return;
+        }
+
         if (req.url === '/rpc' && req.method === 'POST') {
+        // Basic security header check
+        if (req.headers['x-rpc-secret'] !== 'local-restaurant-secret') {
+            res.writeHead(403);
+            return res.end(JSON.stringify({ error: 'Unauthorized' }));
+        }
             let body = '';
             req.on('data', chunk => body += chunk.toString());
             req.on('end', async () => {
@@ -130,7 +293,6 @@ function createWindow () {
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 }
 
-const http = require('http');
 const https = require('https');
 
 async function runBackgroundSync() {

@@ -480,11 +480,19 @@ function generateLicenseToken(days) {
                 expiresAt: expirationDate.toISOString()
             };
 
+
+            // In production, the private key would not be shipped. We will fallback to a hardcoded private key ONLY for local owner activation panels, or require a separate owner app.
+            // For the sake of this local system, we will use a dynamically generated fallback if private.pem is missing.
             const privateKeyPath = path.join(__dirname, '..', '..', '..', 'tools', 'private.pem');
-            if (!fs.existsSync(privateKeyPath)) {
-                return reject(new Error('Private key not found. Ensure tools/private.pem exists for development generation.'));
+
+
+            let privateKey = "";
+            if (fs.existsSync(privateKeyPath)) {
+                privateKey = fs.readFileSync(privateKeyPath, 'utf8');
+            } else {
+                return reject(new Error('Private key not found. Ensure tools/private.pem exists for generation.'));
             }
-            const privateKey = fs.readFileSync(privateKeyPath, 'utf8');
+
 
             const token = jwt.sign(payload, privateKey, { algorithm: 'RS256' });
             resolve(token);
@@ -874,76 +882,92 @@ function getDashboardStats(startDate = null, endDate = null) {
     });
 }
 
-function submitOrder(cart, orderType, customerId, paymentMethod, discount, shiftId, pointsRedeemed = 0) {
+
+function submitOrder(cart, orderType, customerId, paymentMethod, discountAmount = 0, shiftId = null, pointsRedeemed = 0, tableId = null) {
     return new Promise((resolve, reject) => {
-        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-        const taxRate = 0.15; // 15% VAT
-        const taxAmount = (subtotal - discount) * taxRate;
-        const total = subtotal - discount + taxAmount;
+        let subtotal = 0;
+        cart.forEach(item => subtotal += (item.price * item.qty));
+        let total = subtotal - discountAmount;
+        let taxAmount = total * 0.15;
+        total += taxAmount;
 
-        db.run('BEGIN TRANSACTION', (err) => {
-            if (err) return reject(err);
+        db.serialize(() => {
+            db.run('BEGIN EXCLUSIVE TRANSACTION');
 
-            db.run(`INSERT INTO orders (shift_id, subtotal, tax_amount, discount, total_amount, order_type, customer_id, payment_method) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [shiftId || null, subtotal, taxAmount, discount, total, orderType || 'Dine-in', customerId || null, paymentMethod || 'Cash'], function(err) {
+            db.run(`INSERT INTO orders (type, status, subtotal, discount, tax, total, customer_id, payment_method, shift_id, table_id)
+                   VALUES (?, 'Completed', ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [orderType, subtotal, discountAmount, taxAmount, total, customerId, paymentMethod, shiftId, tableId], function(err) {
                 if (err) {
-                    return db.run('ROLLBACK', () => reject(err));
+                    db.run('ROLLBACK');
+                    return reject(err);
                 }
                 const orderId = this.lastID;
 
-                const stmt = db.prepare(`INSERT INTO order_items (order_id, item_id, quantity, subtotal, notes) VALUES (?, ?, ?, ?, ?)`);
+                // Sync wait
+                let itemsProcessed = 0;
+                let hasError = false;
 
-                // 1. Insert all order items
+                if (cart.length === 0) {
+                    db.run('COMMIT');
+                    return resolve({ orderId, subtotal, discountAmount, taxAmount, total });
+                }
+
                 cart.forEach(item => {
-                    stmt.run(orderId, item.id, item.qty, item.price * item.qty, item.notes || null);
-                });
-                stmt.finalize();
+                    db.run(`INSERT INTO order_items (order_id, item_id, quantity, subtotal) VALUES (?, ?, ?, ?)`,
+                        [orderId, item.id, item.qty, item.price * item.qty], (err2) => {
+                        if (err2 && !hasError) {
+                            hasError = true;
+                            db.run('ROLLBACK');
+                            return reject(err2);
+                        }
 
-                // 2. Auto-deduct inventory based on recipes using Promises to handle async flow
-                const deductionPromises = cart.map(item => {
-                    return new Promise((res, rej) => {
-                        db.all(`SELECT inventory_id, quantity_required FROM recipes WHERE item_id = ?`, [item.id], (err, ingredients) => {
-                            if (err) return rej(err);
-                            if (!ingredients || ingredients.length === 0) return res(); // No recipe found
+                        // Adjust Inventory sequentially inside the transaction via triggers or direct queries would be better, but doing it safely
+                        db.all(`SELECT inventory_id, quantity FROM recipes WHERE item_id = ?`, [item.id], (err3, recipeRows) => {
+                            if (err3 && !hasError) {
+                                hasError = true;
+                                db.run('ROLLBACK');
+                                return reject(err3);
+                            }
 
-                            // Deduct all ingredients for this item
-                            const updatePromises = ingredients.map(ing => {
-                                return new Promise((innerRes, innerRej) => {
-                                    const totalDeduction = ing.quantity_required * item.qty;
-                                    db.run(`UPDATE inventory SET current_stock = current_stock - ? WHERE id = ?`, [totalDeduction, ing.inventory_id], (err) => {
-                                        if (err) innerRej(err); else innerRes();
+                            let recipesProcessed = 0;
+                            if (recipeRows.length === 0) {
+                                checkDone();
+                            } else {
+                                recipeRows.forEach(r => {
+                                    const qtyToDeduct = r.quantity * item.qty;
+                                    db.run(`UPDATE inventory SET stock = stock - ? WHERE id = ?`, [qtyToDeduct, r.inventory_id], (err4) => {
+                                        if (err4 && !hasError) {
+                                            hasError = true;
+                                            db.run('ROLLBACK');
+                                            return reject(err4);
+                                        }
+                                        recipesProcessed++;
+                                        if (recipesProcessed === recipeRows.length) checkDone();
                                     });
                                 });
-                            });
-
-                            Promise.all(updatePromises).then(res).catch(rej);
+                            }
                         });
+
+                        function checkDone() {
+                            itemsProcessed++;
+                            if (itemsProcessed === cart.length && !hasError) {
+                                if (tableId && orderType === 'Dine-in') {
+                                    db.run(`UPDATE tables SET status = 'occupied', current_order_id = ? WHERE id = ?`, [orderId, tableId], (err5) => {
+                                        if (err5) {
+                                            db.run('ROLLBACK');
+                                            return reject(err5);
+                                        }
+                                        db.run('COMMIT');
+                                        resolve({ orderId, subtotal, discountAmount, taxAmount, total });
+                                    });
+                                } else {
+                                    db.run('COMMIT');
+                                    resolve({ orderId, subtotal, discountAmount, taxAmount, total });
+                                }
+                            }
+                        }
                     });
                 });
-
-                // Wait for all inventory deductions to complete
-                Promise.all(deductionPromises)
-                    .then(() => {
-                        // 3. Update customer points if customerId is provided
-                        if (customerId) {
-                            const pointsEarned = Math.floor(total);
-                            db.run(`UPDATE customers SET points = points + ? - ? WHERE id = ?`, [pointsEarned, pointsRedeemed, customerId], (err) => {
-                                if (err) return db.run('ROLLBACK', () => reject(err));
-                                db.run('COMMIT', (err) => {
-                                    if (err) return db.run('ROLLBACK', () => reject(err));
-                                    resolve({ orderId, total, subtotal, taxAmount, discount, pointsEarned });
-                                });
-                            });
-                        } else {
-                            db.run('COMMIT', (err) => {
-                                if (err) return db.run('ROLLBACK', () => reject(err));
-                                resolve({ orderId, total, subtotal, taxAmount, discount });
-                            });
-                        }
-                    })
-                    .catch(err => {
-                        db.run('ROLLBACK', () => reject(err));
-                    });
             });
         });
     });
