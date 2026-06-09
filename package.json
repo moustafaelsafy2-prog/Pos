@@ -1,25 +1,15 @@
 {
-  "name": "app",
+  "name": "restaurant-pos",
   "version": "1.0.0",
-  "description": "Restaurant POS System",
+  "description": "Restaurant POS desktop application",
   "main": "src/main/main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "electron .",
-    "build": "electron-builder --win"
+    "build": "electron-builder --win --x64"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/moustafaelsafy2-prog/Pos.git"
-  },
-  "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/moustafaelsafy2-prog/Pos/issues"
-  },
-  "homepage": "https://github.com/moustafaelsafy2-prog/Pos#readme",
   "devDependencies": {
     "electron": "^42.3.3",
     "electron-builder": "^26.8.1"
@@ -32,26 +22,25 @@
     "sqlite3": "^6.0.1"
   },
   "build": {
-    "appId": "com.pos.app",
+    "appId": "com.restaurant.pos",
     "productName": "Restaurant POS",
     "directories": {
       "output": "dist"
     },
     "win": {
-      "target": [
-        "nsis"
-      ]
+      "target": "nsis"
     },
     "nsis": {
       "oneClick": false,
-      "perMachine": true,
+      "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
     },
     "files": [
       "src/**/*",
-      "node_modules/**/*"
-    ]
+      "package.json"
+    ],
+    "asar": false
   }
 }
