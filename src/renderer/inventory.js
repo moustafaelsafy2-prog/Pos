@@ -1,3 +1,8 @@
+function escapeHtml(unsafe) {
+    if (!unsafe) return '';
+    return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
 async function loadInventoryData() {
     try {
         const inventory = await window.api.getInventory();
@@ -114,7 +119,7 @@ async function loadWastageData() {
         if (select) {
             select.innerHTML = '<option value="">Select Item to Spoil...</option>';
             inventory.forEach(i => {
-                select.innerHTML += `<option value="${i.id}">${i.name} (${i.unit})</option>`;
+                select.innerHTML += `<option value="${escapeHtml(i.id)}">${escapeHtml(i.name)} (${escapeHtml(i.unit)})</option>`;
             });
         }
 

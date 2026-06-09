@@ -1,3 +1,8 @@
+function escapeHtml(unsafe) {
+    if (!unsafe) return '';
+    return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
 async function loadAccountingData() {
     await loadExpenses();
     await loadShiftsAudit();
@@ -168,13 +173,13 @@ document.getElementById('new-po-btn').addEventListener('click', async () => {
     const supSelect = document.getElementById('po-supplier-select');
     supSelect.innerHTML = poSuppliers.length === 0 ? '<option value="">No suppliers found</option>' : '';
     poSuppliers.forEach(s => {
-        supSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+        supSelect.innerHTML += `<option value="${escapeHtml(s.id)}">${escapeHtml(s.name)}</option>`;
     });
 
     const invSelect = document.getElementById('po-inventory-select');
     invSelect.innerHTML = '';
     poInventory.forEach(i => {
-        invSelect.innerHTML += `<option value="${i.id}">${i.name} (${i.unit})</option>`;
+        invSelect.innerHTML += `<option value="${escapeHtml(i.id)}">${escapeHtml(i.name)} (${escapeHtml(i.unit)})</option>`;
     });
 
     document.getElementById('create-po-modal').style.display = 'flex';

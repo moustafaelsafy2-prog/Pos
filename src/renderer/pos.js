@@ -1,3 +1,8 @@
+function escapeHtml(unsafe) {
+    if (!unsafe) return '';
+    return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
 let cart = [];
 let categories = [];
 let allItems = [];
@@ -291,7 +296,7 @@ async function loadTables() {
         if (select) {
             select.innerHTML = '<option value="">No Table</option>';
             tablesList.forEach(t => {
-                select.innerHTML += `<option value="${t.id}">${t.table_number}</option>`;
+                select.innerHTML += `<option value="${escapeHtml(t.id)}">${escapeHtml(t.table_number)}</option>`;
             });
         }
     } catch(e) {
@@ -339,12 +344,12 @@ function renderTableMap() {
         if (t.status === 'occupied') {
             div.style.background = 'var(--primary)';
             div.style.color = 'white';
-            div.innerHTML = `${t.table_number}<br><span style="font-size:10px;font-weight:normal;">Occupied</span>`;
+            div.innerHTML = `${escapeHtml(t.table_number)}<br><span style="font-size:10px;font-weight:normal;">Occupied</span>`;
         } else {
             div.style.background = 'white';
             div.style.color = 'var(--dark)';
             div.style.border = '1px solid var(--gray-border)';
-            div.innerHTML = `${t.table_number}<br><span style="font-size:10px;font-weight:normal;">Free</span>`;
+            div.innerHTML = `${escapeHtml(t.table_number)}<br><span style="font-size:10px;font-weight:normal;">Free</span>`;
         }
 
         div.onclick = () => {

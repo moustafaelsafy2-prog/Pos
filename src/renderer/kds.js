@@ -1,3 +1,8 @@
+function escapeHtml(unsafe) {
+    if (!unsafe) return '';
+    return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
 async function loadKDSData() {
     try {
         const orders = await window.api.getPendingOrders();
@@ -15,12 +20,12 @@ async function loadKDSData() {
 
             let itemsHtml = '';
             order.items.forEach(item => {
-                itemsHtml += `<div class="kds-item">${item.quantity}x ${item.name}</div>`;
+                itemsHtml += `<div class="kds-item">${escapeHtml(item.quantity)}x ${escapeHtml(item.name)}</div>`;
                 if (item.notes) {
                     // Sanitize notes
                     const noteDiv = document.createElement('div');
                     noteDiv.textContent = `📝 ${item.notes}`;
-                    itemsHtml += `<div class="kds-note">${noteDiv.innerHTML}</div>`;
+                    itemsHtml += `<div class="kds-note">${escapeHtml(item.notes)}</div>`;
                 }
             });
 
