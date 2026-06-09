@@ -489,6 +489,17 @@
             <input type="text" id="sync-server-url" class="custom-input" placeholder="http://192.168.1.x:port">
 
             <button id="save-settings-btn" class="custom-btn" style="background: var(--dark); margin-top: 15px;" data-i18n="save">Save</button>
+
+            <hr style="margin: 20px 0; border-top: 1px solid #ddd;">
+            <h4 style="margin-top: 20px; color: var(--dark);">Network Mode (Multi-Cashier)</h4>
+            <p style="font-size: 12px; color: var(--gray-text);">If this is the main computer, choose 'Server'. If this is a secondary cashier, choose 'Client' and enter the main Server's IP address. The app will restart upon saving.</p>
+            <select id="network-mode" class="custom-input">
+                <option value="server">Main Server (Local DB)</option>
+                <option value="client">Client Device (Connect to Main)</option>
+            </select>
+            <input type="text" id="network-server-ip" class="custom-input" placeholder="Main Server IP (e.g. 192.168.1.15)">
+            <button id="save-network-btn" class="custom-btn" style="background: var(--primary); margin-top: 10px;">Save & Restart Network</button>
+
           </div>
 
           <div class="chart-card">

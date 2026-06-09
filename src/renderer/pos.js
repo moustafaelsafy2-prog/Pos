@@ -282,6 +282,23 @@ document.getElementById('search-cust-btn').addEventListener('click', async () =>
 let currentPaymentMethod = 'Cash';
 
 // --- Table Map Management ---
+
+let tablesList = [];
+async function loadTables() {
+    try {
+        tablesList = await window.api.getTables();
+        const select = document.getElementById('dinein-table-select');
+        if (select) {
+            select.innerHTML = '<option value="">No Table</option>';
+            tablesList.forEach(t => {
+                select.innerHTML += `<option value="${t.id}">${t.table_number}</option>`;
+            });
+        }
+    } catch(e) {
+        console.error(e);
+    }
+}
+
 if (document.getElementById('manage-tables-btn')) {
     document.getElementById('manage-tables-btn').addEventListener('click', () => {
         document.getElementById('table-map-modal').style.display = 'flex';
@@ -797,3 +814,33 @@ async function printZReport(shiftId, expected, actual) {
 
 // Initialization will be triggered after license check passes
 window.initPOS = initPOS;
+
+
+// Network Config UI
+async function loadNetworkConfig() {
+    if(window.api.getNetworkConfig) {
+        const config = await window.api.getNetworkConfig();
+        const modeSelect = document.getElementById('network-mode');
+        const ipInput = document.getElementById('network-server-ip');
+        if(modeSelect && ipInput) {
+            modeSelect.value = config.mode || 'server';
+            ipInput.value = config.serverIp || '127.0.0.1';
+            ipInput.style.display = config.mode === 'client' ? 'block' : 'none';
+
+            modeSelect.addEventListener('change', (e) => {
+                ipInput.style.display = e.target.value === 'client' ? 'block' : 'none';
+            });
+        }
+    }
+}
+
+if(document.getElementById('save-network-btn')) {
+    document.getElementById('save-network-btn').addEventListener('click', async () => {
+        const mode = document.getElementById('network-mode').value;
+        const ip = document.getElementById('network-server-ip').value || '127.0.0.1';
+        if(window.api.saveNetworkConfig) {
+            await window.api.saveNetworkConfig(mode, ip);
+            alert("Network settings saved. The application must be restarted to apply changes.");
+        }
+    });
+}

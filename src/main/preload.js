@@ -25,7 +25,11 @@ contextBridge.exposeInMainWorld('api', {
     receivePurchaseOrder: (poId) => ipcRenderer.invoke('db-receive-po', poId),
     getShiftsForAudit: () => ipcRenderer.invoke('db-get-shifts-audit'),
     auditShift: (shiftId) => ipcRenderer.invoke('db-audit-shift', shiftId),
+    getTables: () => ipcRenderer.invoke('db-get-tables'),
+    addTable: (tableNumber) => ipcRenderer.invoke('db-add-table', tableNumber),
     getInventory: () => ipcRenderer.invoke('db-get-inventory'),
+    getWastage: () => ipcRenderer.invoke('db-get-wastage'),
+    addWastage: (invId, qty, reason) => ipcRenderer.invoke('db-add-wastage', invId, qty, reason),
     addInventoryItem: (name, unit, stock, thresh) => ipcRenderer.invoke('db-add-inventory', name, unit, stock, thresh),
     addMenuItem: (catId, name, price, img) => ipcRenderer.invoke('db-add-menu-item', catId, name, price, img),
     addRecipe: (itemId, invId, qty) => ipcRenderer.invoke('db-add-recipe', itemId, invId, qty),
@@ -54,5 +58,7 @@ contextBridge.exposeInMainWorld('api', {
     activateLicense: (key) => ipcRenderer.invoke('activate-license', key),
     verifyMasterPassword: (password) => ipcRenderer.invoke('db-verify-master-password', password),
     generateLicense: (days, targetMachineId) => ipcRenderer.invoke('db-generate-license', days, targetMachineId),
-    getMachineId: () => ipcRenderer.invoke('get-machine-id')
+    getMachineId: () => ipcRenderer.invoke('get-machine-id'),
+    getNetworkConfig: () => ipcRenderer.invoke('get-network-config'),
+    saveNetworkConfig: (mode, ip) => ipcRenderer.invoke('save-network-config', mode, ip)
 });

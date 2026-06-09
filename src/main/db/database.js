@@ -1072,7 +1072,62 @@ function markOrdersSynced(orderIds) {
     });
 }
 
+
+function getTables() {
+    return new Promise((resolve, reject) => {
+        db.all('SELECT * FROM tables', [], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+
+function addTable(tableNumber) {
+    return new Promise((resolve, reject) => {
+        db.run('INSERT INTO tables (table_number) VALUES (?)', [tableNumber], function(err) {
+            if (err) reject(err);
+            else resolve({ id: this.lastID });
+        });
+    });
+}
+
+
+function getWastage() {
+    return new Promise((resolve, reject) => {
+        db.all(`SELECT w.*, i.name as item_name FROM wastage w JOIN inventory i ON w.inventory_id = i.id ORDER BY w.log_date DESC`, [], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+
+function addWastage(inventoryId, quantity, reason) {
+    return new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.run('BEGIN TRANSACTION');
+            db.run(`INSERT INTO wastage (inventory_id, quantity, reason) VALUES (?, ?, ?)`, [inventoryId, quantity, reason], (err) => {
+                if (err) {
+                    db.run('ROLLBACK');
+                    return reject(err);
+                }
+                db.run(`UPDATE inventory SET stock = stock - ? WHERE id = ?`, [quantity, inventoryId], (err2) => {
+                    if (err2) {
+                        db.run('ROLLBACK');
+                        return reject(err2);
+                    }
+                    db.run('COMMIT');
+                    resolve({success: true});
+                });
+            });
+        });
+    });
+}
+
 module.exports = {
+    getTables,
+    addTable,
+    getWastage,
+    addWastage,
     initDb,
     addExpense,
     getExpenses,
