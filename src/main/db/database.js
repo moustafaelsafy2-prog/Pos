@@ -51,7 +51,7 @@ function ensureKeysExist() {
 }
 
 // Secure pre-computed hash for the master password
-const MASTER_PASSWORD_HASH = "$2b$08$pPJu872WBb8a/TJA8iW8LO7n8AWVnQpDmRNa1VRWnmxkE1din41h2";
+const MASTER_PASSWORD_HASH = "$2b$08$x02nOuvFShaQykaBKVZ83.KQVw6x/VcvOh5Cktk1ay5VrFEnC2RPu"; // Changed to PosMasterKey2026
 
 function initDb(userDataPath) {
     const dbPath = path.join(userDataPath, 'pos_database.sqlite');
@@ -157,8 +157,8 @@ function setupSchema() {
         // Seed Default Admin
         db.get('SELECT COUNT(*) AS count FROM users', [], (err, row) => {
             if (!err && row.count === 0) {
-                const hashedPassword = bcrypt.hashSync('0000', 8);
-                db.run(`INSERT INTO users (name, username, password, role) VALUES ('Admin', 'admin', ?, 'admin')`, [hashedPassword]);
+                const hashedPassword = bcrypt.hashSync('Admin@12345', 8);
+                db.run(`INSERT INTO users (name, username, password, role) VALUES ('Super Admin', 'superadmin', ?, 'admin')`, [hashedPassword]);
             }
         });
     });
