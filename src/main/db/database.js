@@ -4,8 +4,51 @@ const { machineIdSync } = require('node-machine-id');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const { app } = require('electron');
 
 let db;
+
+function ensureKeysExist() {
+    const userDataPath = app.getPath('userData');
+
+    // Check possible locations for private key
+    let privateKeyPath = path.join(userDataPath, 'private.pem');
+    if (!fs.existsSync(privateKeyPath)) {
+        privateKeyPath = path.join(app.getAppPath(), 'tools', 'private.pem');
+        if (!fs.existsSync(privateKeyPath)) {
+            privateKeyPath = path.join(__dirname, '..', '..', '..', 'tools', 'private.pem');
+        }
+    }
+
+    // Check possible locations for public key
+    let publicKeyPath = path.join(userDataPath, 'public.pem');
+    if (!fs.existsSync(publicKeyPath)) {
+        publicKeyPath = path.join(app.getAppPath(), 'src', 'main', 'public.pem');
+        if (!fs.existsSync(publicKeyPath)) {
+            publicKeyPath = path.join(__dirname, '..', 'public.pem');
+        }
+    }
+
+    // If still neither exist in any location, generate them in userData
+    if (!fs.existsSync(privateKeyPath) || !fs.existsSync(publicKeyPath)) {
+        console.log("RSA keys not found. Generating new ones in userData path...");
+        const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+            modulusLength: 2048,
+            publicKeyEncoding: { type: 'spki', format: 'pem' },
+            privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
+        });
+
+        privateKeyPath = path.join(userDataPath, 'private.pem');
+        publicKeyPath = path.join(userDataPath, 'public.pem');
+
+        fs.writeFileSync(privateKeyPath, privateKey, 'utf8');
+        fs.writeFileSync(publicKeyPath, publicKey, 'utf8');
+        console.log("New RSA keys generated successfully.");
+    }
+
+    return { privateKeyPath, publicKeyPath };
+}
 
 // Secure pre-computed hash for the master password
 const MASTER_PASSWORD_HASH = "$2b$08$pPJu872WBb8a/TJA8iW8LO7n8AWVnQpDmRNa1VRWnmxkE1din41h2";
@@ -483,20 +526,20 @@ function generateLicenseToken(days) {
 
             // In production, the private key would not be shipped. We will fallback to a hardcoded private key ONLY for local owner activation panels, or require a separate owner app.
             // For the sake of this local system, we will use a dynamically generated fallback if private.pem is missing.
-            const privateKeyPath = path.join(__dirname, '..', '..', '..', 'tools', 'private.pem');
-
+            const { privateKeyPath } = ensureKeysExist();
 
             let privateKey = "";
             if (fs.existsSync(privateKeyPath)) {
                 privateKey = fs.readFileSync(privateKeyPath, 'utf8');
             } else {
-                return reject(new Error('Private key not found. Ensure tools/private.pem exists for generation.'));
+                console.error(`Private key not found at expected path: ${privateKeyPath}`);
+                return reject(new Error(`Private key not found at: ${privateKeyPath}`));
             }
-
 
             const token = jwt.sign(payload, privateKey, { algorithm: 'RS256' });
             resolve(token);
         } catch (e) {
+            console.error('Error generating license token:', e);
             reject(e);
         }
     });
@@ -1009,7 +1052,11 @@ function checkLicense() {
             if (!row) return resolve({ valid: false });
 
             try {
-                const publicKeyPath = path.join(__dirname, '..', 'public.pem');
+                const { publicKeyPath } = ensureKeysExist();
+                if (!fs.existsSync(publicKeyPath)) {
+                    console.error(`Public key not found at: ${publicKeyPath}`);
+                    return resolve({ valid: false });
+                }
                 const publicKey = fs.readFileSync(publicKeyPath, 'utf8');
                 // Verify the JWT stored in the database
                 const decoded = jwt.verify(row.serial_key, publicKey, { algorithms: ['RS256'] });
@@ -1037,7 +1084,11 @@ function activateLicense(token) {
     return new Promise((resolve, reject) => {
         try {
             const currentMachineId = machineIdSync();
-            const publicKeyPath = path.join(__dirname, '..', 'public.pem');
+            const { publicKeyPath } = ensureKeysExist();
+            if (!fs.existsSync(publicKeyPath)) {
+                console.error(`Public key not found at: ${publicKeyPath}`);
+                return resolve({ success: false, message: "Public key missing. Cannot activate license." });
+            }
             const publicKey = fs.readFileSync(publicKeyPath, 'utf8');
             const decoded = jwt.verify(token, publicKey, { algorithms: ['RS256'] });
 
