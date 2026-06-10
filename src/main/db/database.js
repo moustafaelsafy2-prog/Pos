@@ -1166,7 +1166,7 @@ function markOrdersSynced(orderIds) {
 
 function getTables() {
     return new Promise((resolve, reject) => {
-        db.all('SELECT * FROM tables', [], (err, rows) => {
+        db.all('SELECT * FROM restaurant_tables', [], (err, rows) => {
             if (err) reject(err);
             else resolve(rows);
         });
@@ -1175,7 +1175,7 @@ function getTables() {
 
 function addTable(tableNumber) {
     return new Promise((resolve, reject) => {
-        db.run('INSERT INTO tables (table_number) VALUES (?)', [tableNumber], function(err) {
+        db.run('INSERT INTO restaurant_tables (table_number) VALUES (?)', [tableNumber], function(err) {
             if (err) reject(err);
             else resolve({ id: this.lastID });
         });
@@ -1215,6 +1215,8 @@ function addWastage(inventoryId, quantity, reason) {
 }
 
 module.exports = {
+    getOrderItems,
+    refundOrderItems,
     getTables,
     addTable,
     getWastage,

@@ -18,9 +18,12 @@ async function initPOS() {
         if (shift) {
             currentShiftId = shift.id;
             window.currentShiftId = shift.id; // Expose globally for other modules like accounting
+            document.getElementById('open-shift-manual-btn').style.display = 'none'; // Hide button if shift is open
         } else {
-            // User must click Start Shift button to open it
-            // document.getElementById('open-shift-modal').style.display = 'flex';
+            // Force user to open shift
+            document.getElementById('open-shift-modal').style.display = 'flex';
+        document.getElementById('open-shift-manual-btn').style.display = 'inline-block';
+            document.getElementById('open-shift-manual-btn').style.display = 'inline-block';
         }
 
         categories = await window.api.getCategories();
@@ -726,6 +729,7 @@ document.getElementById('submit-open-shift-btn').addEventListener('click', async
         currentShiftId = shift.id;
         window.currentShiftId = shift.id;
         document.getElementById('open-shift-modal').style.display = 'none';
+        document.getElementById('open-shift-manual-btn').style.display = 'none';
     } catch (e) {
         console.error("Failed to open shift", e);
     }
