@@ -915,13 +915,6 @@
       </div>
     </div>
 
-    <!-- Chart.js from node_modules or CDN (We installed it, so we'll reference it or include a script to require it in renderer if nodeIntegration is false, but wait, nodeIntegration is false, so we need to either load it via script tag locally if we copy it, or build it. We will use a script tag to the local node_modules file since this is a local app and we don't have a bundler setup yet for the renderer.) -->
-    <!-- For security and simplicity in this architecture, we will load Chart.js locally. We installed it via npm, so it is in node_modules/chart.js/dist/chart.umd.js -->
-    <script src="../../node_modules/chart.js/dist/chart.umd.js"></script>
-
-    <script src="i18n.js"></script>
-    <script src="pos.js"></script>
-    <script src="dashboard.js"></script>
     <!-- Print Receipt Container (Hidden on screen, shown on print) -->
     <div id="receipt-container" style="display: none;">
       <!-- Content populated by JS -->
@@ -956,6 +949,13 @@
         </div>
     </div>
 
+    <!-- Chart.js from node_modules or CDN (We installed it, so we'll reference it or include a script to require it in renderer if nodeIntegration is false, but wait, nodeIntegration is false, so we need to either load it via script tag locally if we copy it, or build it. We will use a script tag to the local node_modules file since this is a local app and we don't have a bundler setup yet for the renderer.) -->
+    <!-- For security and simplicity in this architecture, we will load Chart.js locally. We installed it via npm, so it is in node_modules/chart.js/dist/chart.umd.js -->
+    <script src="../../node_modules/chart.js/dist/chart.umd.js"></script>
+
+    <script src="i18n.js"></script>
+    <script src="pos.js"></script>
+    <script src="dashboard.js"></script>
     <script src="accounting.js"></script>
     <script src="inventory.js"></script>
     <script src="menu.js"></script>
