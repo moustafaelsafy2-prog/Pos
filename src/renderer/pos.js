@@ -818,6 +818,15 @@ async function printZReport(shiftId, expected, actual) {
 }
 
 // Initialization will be triggered after license check passes
+
+// Wire up manual start shift button if it exists
+const startShiftBtn = document.getElementById('open-shift-manual-btn');
+if (startShiftBtn) {
+    startShiftBtn.addEventListener('click', () => {
+        document.getElementById('open-shift-modal').style.display = 'flex';
+    });
+}
+
 window.initPOS = initPOS;
 
 
