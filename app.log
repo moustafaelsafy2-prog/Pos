@@ -1,8 +1,0 @@
-
-> mongez-restaurant-management@1.0.0 start
-> electron .
-
-Downloading Electron binary...
-[324638:0610/204307.355470:ERROR:ui/ozone/platform/x11/ozone_platform_x11.cc:257] Missing X server or $DISPLAY
-[324638:0610/204307.355563:ERROR:ui/aura/env.cc:246] The platform failed to initialize.  Exiting.
-/app/node_modules/electron/dist/electron exited with signal SIGSEGV
