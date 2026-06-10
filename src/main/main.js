@@ -291,6 +291,14 @@ function createWindow () {
   });
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  mainWindow.webContents.openDevTools();
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+      fs.appendFileSync('renderer_errors.log', `[Renderer Log] Level: ${level} | Line: ${line} | Source: ${sourceId} | Message: ${message}\n`);
+  });
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+      fs.appendFileSync('renderer_errors.log', `[Renderer Crash] ${JSON.stringify(details)}\n`);
+  });
+
 }
 
 const https = require('https');

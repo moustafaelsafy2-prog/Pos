@@ -500,7 +500,14 @@ function loginUser(username, password) {
         db.all("SELECT * FROM users WHERE username = ?", [username], (err, rows) => {
             if (err) return reject(err);
             if (!rows || rows.length === 0) return resolve(null);
-            const user = rows.find(row => bcrypt.compareSync(password, row.password) || bcrypt.compareSync(password, row.pin || ''));
+            const user = rows.find(row => {
+                try {
+                    return bcrypt.compareSync(password, row.password || '') || bcrypt.compareSync(password, row.pin || '');
+                } catch (e) {
+                    console.error('Bcrypt compare error:', e);
+                    return false;
+                }
+            });
             resolve(user || null);
         });
     });
@@ -526,7 +533,11 @@ function addUser(name, username, password, role) {
 
 function verifyMasterPassword(password) {
     return new Promise((resolve) => {
-        resolve(bcrypt.compareSync(password, MASTER_PASSWORD_HASH));
+        try {
+            resolve(bcrypt.compareSync(password, MASTER_PASSWORD_HASH));
+        } catch (e) {
+            resolve(false);
+        }
     });
 }
 

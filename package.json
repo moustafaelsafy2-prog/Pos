@@ -1,7 +1,7 @@
 {
-  "name": "restaurant-pos",
+  "name": "mongez-restaurant-management",
   "version": "1.0.0",
-  "description": "Restaurant POS desktop application",
+  "description": "Mongez Restaurant Management desktop application",
   "main": "src/main/main.js",
   "scripts": {
     "start": "electron .",
@@ -22,8 +22,8 @@
     "sqlite3": "^6.0.1"
   },
   "build": {
-    "appId": "com.restaurant.pos",
-    "productName": "Restaurant POS",
+    "appId": "com.mongez.restaurant",
+    "productName": "Mongez Restaurant Management",
     "directories": {
       "output": "dist"
     },
