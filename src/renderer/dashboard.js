@@ -63,7 +63,7 @@ async function executeTabSwitch(tabId) {
     } else if (tabId === 'settings') {
         document.getElementById('main-settings').style.display = 'flex';
         if(window.loadSettingsData) window.loadSettingsData();
-        if(typeof loadNetworkConfig === 'function') loadNetworkConfig();
+        if(window.loadNetworkConfig) window.loadNetworkConfig();
     } else if (tabId === 'customers') {
         document.getElementById('main-customers').style.display = 'flex';
         if(window.loadCustomersData) window.loadCustomersData();

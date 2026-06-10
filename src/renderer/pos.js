@@ -847,6 +847,7 @@ async function loadNetworkConfig() {
         }
     }
 }
+window.loadNetworkConfig = loadNetworkConfig;
 
 if(document.getElementById('save-network-btn')) {
     document.getElementById('save-network-btn').addEventListener('click', async () => {
