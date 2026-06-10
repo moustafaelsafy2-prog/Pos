@@ -18,12 +18,9 @@ async function initPOS() {
         if (shift) {
             currentShiftId = shift.id;
             window.currentShiftId = shift.id; // Expose globally for other modules like accounting
-            document.getElementById('open-shift-manual-btn').style.display = 'none'; // Hide button if shift is open
         } else {
-            // Force user to open shift
-            document.getElementById('open-shift-modal').style.display = 'flex';
-        document.getElementById('open-shift-manual-btn').style.display = 'inline-block';
-            document.getElementById('open-shift-manual-btn').style.display = 'inline-block';
+            // User must click Start Shift button to open it
+            // document.getElementById('open-shift-modal').style.display = 'flex';
         }
 
         categories = await window.api.getCategories();
@@ -235,23 +232,88 @@ document.getElementById('discount-btn').addEventListener('click', () => {
 });
 
 let heldOrders = [];
-document.getElementById('hold-btn').addEventListener('click', () => {
-    if (cart.length === 0) return alert(window.t('cart_empty'));
-    heldOrders.push([...cart]);
-    cart = [];
-    currentDiscount = 0;
-    renderCart();
-    alert(`Order held. (${heldOrders.length} currently held)`);
+
+document.getElementById('hold-btn').addEventListener('click', async () => {
+    if (cart.length === 0) return;
+    if (!currentShiftId) return alert(window.t('shift_required') || "You must open a shift first!");
+
+    const driverId = currentOrderType === 'Delivery' ? document.getElementById('delivery-driver-select').value : null;
+    const userId = window.currentUser ? window.currentUser.id : null;
+
+    try {
+        await window.api.suspendOrder(cart, currentOrderType, currentCustomerId, discountAmount, selectedTableId, driverId, userId, currentShiftId);
+        cart = [];
+        discountAmount = 0;
+        currentCustomerId = null;
+        selectedTableId = null;
+        document.getElementById('customer-display').innerHTML = '';
+        renderCart();
+        alert("Order suspended successfully!");
+    } catch (e) {
+        console.error("Failed to suspend order:", e);
+        alert("Failed to suspend order.");
+    }
 });
 
-document.getElementById('resume-btn').addEventListener('click', () => {
-    if (heldOrders.length === 0) return alert("No held orders");
-    if (cart.length > 0) return alert("Please finish or hold the current order first");
 
-    cart = heldOrders.pop();
-    currentDiscount = 0;
-    renderCart();
+
+document.getElementById('resume-btn').addEventListener('click', async () => {
+    try {
+        const orders = await window.api.getSuspendedOrders();
+        if(!orders || orders.length === 0) return alert("No suspended orders.");
+
+        const list = document.getElementById('suspended-orders-list');
+        list.innerHTML = '';
+        orders.forEach(o => {
+            const div = document.createElement('div');
+            div.style.padding = "10px";
+            div.style.borderBottom = "1px solid #ccc";
+            div.style.display = "flex";
+            div.style.justifyContent = "space-between";
+            div.innerHTML = `
+                <div>
+                    <strong>Order #${o.id}</strong> - ${o.order_type} - Total: ${o.total_amount.toFixed(2)}
+                    <br><small>${new Date(o.order_date).toLocaleString()}</small>
+                </div>
+                <button class="custom-btn" style="background:var(--primary);" onclick="window.resumeOrder(${o.id}, '${encodeURIComponent(JSON.stringify(o))}')">Resume</button>
+            `;
+            list.appendChild(div);
+        });
+        document.getElementById('suspended-orders-modal').style.display = 'flex';
+    } catch (e) {
+        console.error(e);
+    }
 });
+
+window.resumeOrder = async function(id, orderData) {
+    try {
+        const order = JSON.parse(decodeURIComponent(orderData));
+        await window.api.deleteSuspendedOrder(id);
+
+        cart = order.items.map(i => ({
+            id: i.item_id,
+            name: i.item_name,
+            price: i.price,
+            quantity: i.quantity,
+            notes: i.notes
+        }));
+
+        currentOrderType = order.order_type;
+        currentCustomerId = order.customer_id;
+        discountAmount = order.discount;
+        selectedTableId = order.table_id;
+
+        document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+        const typeBtn = document.querySelector(`[data-type="${currentOrderType}"]`);
+        if(typeBtn) typeBtn.classList.add('active');
+
+        document.getElementById('suspended-orders-modal').style.display = 'none';
+        renderCart();
+    } catch (e) {
+        console.error(e);
+    }
+};
+
 
 // Handle Order Type Change
 document.querySelectorAll('input[name="orderType"]').forEach(radio => {
@@ -509,23 +571,40 @@ document.getElementById('cancel-payment-btn').addEventListener('click', () => {
     document.getElementById('payment-modal').style.display = 'none';
 });
 
+
 document.getElementById('confirm-payment-btn').addEventListener('click', async () => {
-    const orderType = document.querySelector('input[name="orderType"]:checked').value;
-    let customerId = null;
+    const paymentMethod = document.getElementById('payment-method').value;
+    const pointsRedeemed = parseFloat(document.getElementById('use-points').value) || 0;
 
-    if (orderType === 'Delivery') {
-        const phone = document.getElementById('cust-phone').value.trim();
-        const name = document.getElementById('cust-name').value.trim();
-        const address = document.getElementById('cust-address').value.trim();
-        const idVal = document.getElementById('cust-id').value;
+    const driverId = currentOrderType === 'Delivery' ? document.getElementById('delivery-driver-select').value : null;
+    const userId = window.currentUser ? window.currentUser.id : null;
 
-        try {
-            customerId = await window.api.saveCustomer({
-                id: idVal ? parseInt(idVal) : null,
-                name,
-                phone,
-                address
-            });
+    try {
+        const orderId = await window.api.submitOrder(
+            cart, currentOrderType, currentCustomerId, paymentMethod,
+            discountAmount, currentShiftId, pointsRedeemed, selectedTableId, userId, driverId
+        );
+
+        await printReceiptLocally(orderId);
+
+        cart = [];
+        discountAmount = 0;
+        currentCustomerId = null;
+        selectedTableId = null;
+        document.getElementById('customer-display').innerHTML = '';
+        renderCart();
+        document.getElementById('checkout-modal').style.display = 'none';
+
+        if (currentOrderType === 'Dine-in') {
+            loadTablesForSelection();
+            if (typeof loadTables === 'function') loadTables();
+        }
+    } catch (e) {
+        console.error("Payment failed", e);
+        alert("Payment failed");
+    }
+});
+
         } catch (e) {
             console.error("Failed to save customer:", e);
             alert(window.t('save_cust_fail'));
@@ -729,7 +808,6 @@ document.getElementById('submit-open-shift-btn').addEventListener('click', async
         currentShiftId = shift.id;
         window.currentShiftId = shift.id;
         document.getElementById('open-shift-modal').style.display = 'none';
-        document.getElementById('open-shift-manual-btn').style.display = 'none';
     } catch (e) {
         console.error("Failed to open shift", e);
     }
@@ -851,6 +929,7 @@ async function loadNetworkConfig() {
         }
     }
 }
+window.loadNetworkConfig = loadNetworkConfig;
 
 if(document.getElementById('save-network-btn')) {
     document.getElementById('save-network-btn').addEventListener('click', async () => {

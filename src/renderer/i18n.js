@@ -1,6 +1,6 @@
 const translations = {
     en: {
-        app_title: "Restaurant POS",
+        app_title: "Mongez Restaurant Management",
         checking_license: "Checking License...",
         licensed: "Licensed",
         unlicensed: "Unlicensed",
@@ -31,10 +31,11 @@ const translations = {
         fill_all_cust: "Please fill all customer details for delivery.",
         save_cust_fail: "Failed to save customer data.",
         checkout_fail: "Failed to submit order. Check console.",
-        order_success: "Order #{id} ({type}) completed successfully! Total: ${total}"
+        order_success: "Order #{id} ({type}) completed successfully! Total: ${total}",
+        add_customer: "Add Customer"
     },
     ar: {
-        app_title: "نظام نقطة البيع للمطاعم",
+        app_title: "منجز لإدارة المطاعم",
         checking_license: "جاري التحقق من الترخيص...",
         licensed: "مفعل",
         unlicensed: "غير مفعل",
@@ -66,6 +67,7 @@ const translations = {
         save_cust_fail: "فشل في حفظ بيانات العميل.",
         checkout_fail: "فشل في إتمام الطلب. راجع السجل.",
         order_success: "تم إكمال الطلب #{id} ({type}) بنجاح! الإجمالي: ${total}",
+        add_customer: "إضافة عميل",
         nav_pos: "الكاشير",
         nav_dashboard: "التقارير",
         nav_customers: "العملاء",
