@@ -497,11 +497,24 @@ function saveSettings(storeName, taxNumber, syncUrl) {
 
 function loginUser(username, password) {
     return new Promise((resolve, reject) => {
-        db.all("SELECT * FROM users WHERE username = ?", [username], (err, rows) => {
+        db.all("SELECT * FROM users WHERE username = ?", [username], async (err, rows) => {
             if (err) return reject(err);
             if (!rows || rows.length === 0) return resolve(null);
-            const user = rows.find(row => bcrypt.compareSync(password, row.password) || bcrypt.compareSync(password, row.pin || ''));
-            resolve(user || null);
+
+            for (let row of rows) {
+                try {
+                    const match = await bcrypt.compare(password, row.password);
+                    if (match) return resolve(row);
+                    // Legacy pin check (handling errors gracefully)
+                    if (row.pin) {
+                        const pinMatch = await bcrypt.compare(password, row.pin);
+                        if (pinMatch) return resolve(row);
+                    }
+                } catch(e) {
+                    // Ignore compare errors and continue
+                }
+            }
+            resolve(null);
         });
     });
 }
@@ -526,7 +539,10 @@ function addUser(name, username, password, role) {
 
 function verifyMasterPassword(password) {
     return new Promise((resolve) => {
-        resolve(bcrypt.compareSync(password, MASTER_PASSWORD_HASH));
+        bcrypt.compare(password, MASTER_PASSWORD_HASH, (err, result) => {
+            if (err) return resolve(false);
+            resolve(result);
+        });
     });
 }
 
