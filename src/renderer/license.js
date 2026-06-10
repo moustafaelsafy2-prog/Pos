@@ -98,6 +98,6 @@ document.getElementById('generate-license-btn').addEventListener('click', async 
         document.getElementById('generated-key-display').value = token;
     } catch (e) {
         console.error(e);
-        alert("Failed to generate license token: " + e.message);
+        alert(e.message);
     }
 });

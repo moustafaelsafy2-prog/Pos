@@ -12,39 +12,57 @@ let db;
 function ensureKeysExist() {
     const userDataPath = app.getPath('userData');
 
-    // Check possible locations for private key
-    let privateKeyPath = path.join(userDataPath, 'private.pem');
-    if (!fs.existsSync(privateKeyPath)) {
-        privateKeyPath = path.join(app.getAppPath(), 'tools', 'private.pem');
-        if (!fs.existsSync(privateKeyPath)) {
-            privateKeyPath = path.join(__dirname, '..', '..', '..', 'tools', 'private.pem');
+    const possiblePrivatePaths = [
+        path.join(userDataPath, 'private.pem'),
+        path.join(app.getAppPath(), 'tools', 'private.pem'),
+        path.join(process.resourcesPath ? process.resourcesPath : '', 'tools', 'private.pem'),
+        path.join(__dirname, '..', '..', '..', 'tools', 'private.pem'),
+        path.join(__dirname, '..', '..', 'tools', 'private.pem')
+    ];
+
+    const possiblePublicPaths = [
+        path.join(userDataPath, 'public.pem'),
+        path.join(app.getAppPath(), 'src', 'main', 'public.pem'),
+        path.join(process.resourcesPath ? process.resourcesPath : '', 'src', 'main', 'public.pem'),
+        path.join(__dirname, '..', 'public.pem')
+    ];
+
+    let privateKeyPath = null;
+    let publicKeyPath = null;
+
+    for (const p of possiblePrivatePaths) {
+        if (p && fs.existsSync(p)) {
+            privateKeyPath = p;
+            break;
         }
     }
 
-    // Check possible locations for public key
-    let publicKeyPath = path.join(userDataPath, 'public.pem');
-    if (!fs.existsSync(publicKeyPath)) {
-        publicKeyPath = path.join(app.getAppPath(), 'src', 'main', 'public.pem');
-        if (!fs.existsSync(publicKeyPath)) {
-            publicKeyPath = path.join(__dirname, '..', 'public.pem');
+    for (const p of possiblePublicPaths) {
+        if (p && fs.existsSync(p)) {
+            publicKeyPath = p;
+            break;
         }
     }
 
-    // If still neither exist in any location, generate them in userData
-    if (!fs.existsSync(privateKeyPath) || !fs.existsSync(publicKeyPath)) {
+    if (!privateKeyPath || !publicKeyPath) {
         console.log("RSA keys not found. Generating new ones in userData path...");
-        const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
-            modulusLength: 2048,
-            publicKeyEncoding: { type: 'spki', format: 'pem' },
-            privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
-        });
+        try {
+            const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', {
+                modulusLength: 2048,
+                publicKeyEncoding: { type: 'spki', format: 'pem' },
+                privateKeyEncoding: { type: 'pkcs8', format: 'pem' }
+            });
 
-        privateKeyPath = path.join(userDataPath, 'private.pem');
-        publicKeyPath = path.join(userDataPath, 'public.pem');
+            privateKeyPath = path.join(userDataPath, 'private.pem');
+            publicKeyPath = path.join(userDataPath, 'public.pem');
 
-        fs.writeFileSync(privateKeyPath, privateKey, 'utf8');
-        fs.writeFileSync(publicKeyPath, publicKey, 'utf8');
-        console.log("New RSA keys generated successfully.");
+            fs.writeFileSync(privateKeyPath, privateKey, 'utf8');
+            fs.writeFileSync(publicKeyPath, publicKey, 'utf8');
+            console.log("New RSA keys generated successfully at:", userDataPath);
+        } catch (e) {
+            console.error("Failed to generate RSA keys:", e);
+            throw new Error("Failed to auto-generate RSA keys: " + e.message);
+        }
     }
 
     return { privateKeyPath, publicKeyPath };
@@ -524,9 +542,6 @@ function generateLicenseToken(days, targetMachineId) {
                 expiresAt: expirationDate.toISOString()
             };
 
-
-            // In production, the private key would not be shipped. We will fallback to a hardcoded private key ONLY for local owner activation panels, or require a separate owner app.
-            // For the sake of this local system, we will use a dynamically generated fallback if private.pem is missing.
             const { privateKeyPath } = ensureKeysExist();
 
             let privateKey = "";
@@ -534,14 +549,14 @@ function generateLicenseToken(days, targetMachineId) {
                 privateKey = fs.readFileSync(privateKeyPath, 'utf8');
             } else {
                 console.error(`Private key not found at expected path: ${privateKeyPath}`);
-                return reject(new Error(`Private key not found at: ${privateKeyPath}`));
+                return reject(new Error(`Failed to generate license token. Are you sure you have tools/private.pem? Checked paths, missing at: ${privateKeyPath}`));
             }
 
             const token = jwt.sign(payload, privateKey, { algorithm: 'RS256' });
             resolve(token);
         } catch (e) {
             console.error('Error generating license token:', e);
-            reject(e);
+            reject(new Error(`Failed to generate license token. Are you sure you have tools/private.pem? Details: ${e.message}`));
         }
     });
 }

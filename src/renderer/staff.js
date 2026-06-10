@@ -33,7 +33,7 @@ document.getElementById('add-staff-btn').addEventListener('click', async () => {
     const password = document.getElementById('new-staff-pin').value.trim();
     const role = document.getElementById('new-staff-role').value;
 
-    if (!name || !pin || pin.length !== 4) {
+    if (!name || !username || !password) {
         return alert(window.t('fill_all_fields') || "Please fill all fields correctly (PIN must be 4 digits).");
     }
 
