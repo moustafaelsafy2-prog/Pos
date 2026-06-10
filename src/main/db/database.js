@@ -953,7 +953,7 @@ function submitOrder(cart, orderType, customerId, paymentMethod, discountAmount 
         db.serialize(() => {
             db.run('BEGIN EXCLUSIVE TRANSACTION');
 
-            db.run(`INSERT INTO orders (type, status, subtotal, discount, tax, total, customer_id, payment_method, shift_id, table_id)
+            db.run(`INSERT INTO orders (order_type, status, subtotal, discount, tax_amount, total_amount, customer_id, payment_method, shift_id, table_id)
                    VALUES (?, 'Completed', ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [orderType, subtotal, discountAmount, taxAmount, total, customerId, paymentMethod, shiftId, tableId], function(err) {
                 if (err) {
@@ -981,7 +981,7 @@ function submitOrder(cart, orderType, customerId, paymentMethod, discountAmount 
                         }
 
                         // Adjust Inventory sequentially inside the transaction via triggers or direct queries would be better, but doing it safely
-                        db.all(`SELECT inventory_id, quantity FROM recipes WHERE item_id = ?`, [item.id], (err3, recipeRows) => {
+                        db.all(`SELECT inventory_id, quantity_required FROM recipes WHERE item_id = ?`, [item.id], (err3, recipeRows) => {
                             if (err3 && !hasError) {
                                 hasError = true;
                                 db.run('ROLLBACK');
@@ -993,8 +993,8 @@ function submitOrder(cart, orderType, customerId, paymentMethod, discountAmount 
                                 checkDone();
                             } else {
                                 recipeRows.forEach(r => {
-                                    const qtyToDeduct = r.quantity * item.qty;
-                                    db.run(`UPDATE inventory SET stock = stock - ? WHERE id = ?`, [qtyToDeduct, r.inventory_id], (err4) => {
+                                    const qtyToDeduct = r.quantity_required * item.qty;
+                                    db.run(`UPDATE inventory SET current_stock = current_stock - ? WHERE id = ?`, [qtyToDeduct, r.inventory_id], (err4) => {
                                         if (err4 && !hasError) {
                                             hasError = true;
                                             db.run('ROLLBACK');
@@ -1011,7 +1011,7 @@ function submitOrder(cart, orderType, customerId, paymentMethod, discountAmount 
                             itemsProcessed++;
                             if (itemsProcessed === cart.length && !hasError) {
                                 if (tableId && orderType === 'Dine-in') {
-                                    db.run(`UPDATE tables SET status = 'occupied', current_order_id = ? WHERE id = ?`, [orderId, tableId], (err5) => {
+                                    db.run(`UPDATE restaurant_tables SET status = 'occupied', current_order_id = ? WHERE id = ?`, [orderId, tableId], (err5) => {
                                         if (err5) {
                                             db.run('ROLLBACK');
                                             return reject(err5);
@@ -1166,7 +1166,7 @@ function markOrdersSynced(orderIds) {
 
 function getTables() {
     return new Promise((resolve, reject) => {
-        db.all('SELECT * FROM tables', [], (err, rows) => {
+        db.all('SELECT * FROM restaurant_tables', [], (err, rows) => {
             if (err) reject(err);
             else resolve(rows);
         });
@@ -1175,7 +1175,7 @@ function getTables() {
 
 function addTable(tableNumber) {
     return new Promise((resolve, reject) => {
-        db.run('INSERT INTO tables (table_number) VALUES (?)', [tableNumber], function(err) {
+        db.run('INSERT INTO restaurant_tables (table_number) VALUES (?)', [tableNumber], function(err) {
             if (err) reject(err);
             else resolve({ id: this.lastID });
         });
@@ -1196,12 +1196,12 @@ function addWastage(inventoryId, quantity, reason) {
     return new Promise((resolve, reject) => {
         db.serialize(() => {
             db.run('BEGIN TRANSACTION');
-            db.run(`INSERT INTO wastage (inventory_id, quantity, reason) VALUES (?, ?, ?)`, [inventoryId, quantity, reason], (err) => {
+            db.run('INSERT INTO wastage (inventory_id, quantity, reason) VALUES (?, ?, ?)', [inventoryId, quantity, reason], (err) => {
                 if (err) {
                     db.run('ROLLBACK');
                     return reject(err);
                 }
-                db.run(`UPDATE inventory SET stock = stock - ? WHERE id = ?`, [quantity, inventoryId], (err2) => {
+                db.run(`UPDATE inventory SET current_stock = current_stock - ? WHERE id = ?`, [quantity, inventoryId], (err2) => {
                     if (err2) {
                         db.run('ROLLBACK');
                         return reject(err2);
@@ -1243,6 +1243,8 @@ module.exports = {
     getTodayOrders,
     markOrderReady,
     refundOrder,
+    getOrderItems,
+    refundOrderItems,
     saveCustomer,
     getDashboardStats,
     getInventory,
