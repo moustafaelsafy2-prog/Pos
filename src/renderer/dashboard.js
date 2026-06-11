@@ -98,6 +98,19 @@ document.getElementById('login-btn').addEventListener('click', async () => {
             // Apply RBAC UI changes
             applyRoleRestrictions(user.role);
 
+            // Fetch active shift for this user
+            const activeShift = await window.api.getCurrentShift(user.id);
+            if (activeShift) {
+                window.currentShiftId = activeShift.id;
+                document.getElementById('current-cashier-name').textContent = user.username;
+            } else {
+                window.currentShiftId = null;
+                document.getElementById('current-cashier-name').textContent = "No Shift";
+                document.getElementById('shift-cashier-name').value = user.username;
+                // Automatically show open shift modal if in POS mode
+                document.getElementById('open-shift-modal').style.display = 'flex';
+            }
+
             // Start POS
             if(window.initPOS) window.initPOS();
         } else {

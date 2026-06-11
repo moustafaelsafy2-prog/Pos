@@ -102,6 +102,9 @@
             <h1 data-i18n="app_title">Restaurant POS</h1>
             <div class="top-controls">
               <input type="text" id="search-input" data-i18n-placeholder="search_items" placeholder="Search items..." class="custom-input" style="margin-bottom: 0; width: 250px;">
+              <div id="shift-info-display" style="display: flex; align-items: center; gap: 10px; background: white; padding: 5px 15px; border-radius: 8px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <span data-i18n="cashier">Cashier:</span> <span id="current-cashier-name" style="color: var(--primary);">No Shift</span>
+              </div>
               <button id="open-shift-manual-btn" class="custom-btn" style="background: var(--primary); margin: 0; width: auto;" data-i18n="start_shift">Start Shift</button>
               <button id="close-shift-btn" class="custom-btn" style="background: var(--dark); margin: 0; width: auto;" data-i18n="close_shift">Close Shift</button>
               <button class="lang-btn" onclick="window.setLanguage('en')">EN</button>
@@ -816,7 +819,7 @@
     <div id="open-shift-modal" class="modal" style="display:none; z-index: 3000;">
       <div class="modal-content" style="max-width: 400px; text-align: center;">
         <h2 data-i18n="open_shift">Open Shift</h2>
-        <input type="text" id="shift-cashier-name" class="custom-input" data-i18n-placeholder="cashier_name" placeholder="Cashier Name">
+        <input type="text" id="shift-cashier-name" class="custom-input" readonly style="background: #f0f0f0; cursor: not-allowed;" placeholder="Cashier Name">
         <input type="number" id="shift-starting-cash" class="custom-input" data-i18n-placeholder="starting_cash" placeholder="Starting Cash in Drawer ($)">
         <button id="submit-open-shift-btn" class="custom-btn" style="background: var(--primary); color: white; margin-top: 15px;" data-i18n="start_shift">Start Shift</button>
       </div>
@@ -950,6 +953,17 @@
             </div>
             <button id="close-table-map-btn" class="glass-btn" style="margin-top: 20px; background: rgba(255,100,100,0.2);">Close</button>
         </div>
+    </div>
+
+    <!-- Suspended Orders Modal -->
+    <div id="suspended-orders-modal" class="modal" style="display:none; z-index: 5000;">
+      <div class="modal-content" style="max-width: 500px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2 style="margin: 0;">Suspended Orders</h2>
+          <button class="custom-btn" style="margin: 0; background: var(--dark);" onclick="document.getElementById('suspended-orders-modal').style.display='none'">Close</button>
+        </div>
+        <div id="suspended-orders-list" style="max-height: 400px; overflow-y: auto; text-align: left;"></div>
+      </div>
     </div>
 
     <!-- Split Bill Modal -->

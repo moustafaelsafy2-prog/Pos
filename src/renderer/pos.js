@@ -6,21 +6,31 @@ function escapeHtml(unsafe) {
 let cart = [];
 let categories = [];
 let allItems = [];
-let currentDiscount = 0;
+let discountAmount = 0;
 let currentSearchTerm = '';
 let currentCategoryId = null;
 let currentShiftId = null;
 
+// Track Order State Globally
+let currentOrderType = 'Takeaway';
+let currentCustomerId = null;
+let selectedTableId = null;
+
 async function initPOS() {
     try {
-        // Check Shift Status first
-        const shift = await window.api.getCurrentShift();
+        // Check Shift Status first using currentUser id
+        const userId = window.currentUser ? window.currentUser.id : null;
+        const shift = await window.api.getCurrentShift(userId);
         if (shift) {
             currentShiftId = shift.id;
             window.currentShiftId = shift.id; // Expose globally for other modules like accounting
+            document.getElementById('current-cashier-name').textContent = shift.cashier_name;
         } else {
-            // User must click Start Shift button to open it
-            // document.getElementById('open-shift-modal').style.display = 'flex';
+            window.currentShiftId = null;
+            if (window.currentUser) {
+                document.getElementById('shift-cashier-name').value = window.currentUser.username;
+            }
+            document.getElementById('open-shift-modal').style.display = 'flex';
         }
 
         categories = await window.api.getCategories();
@@ -100,6 +110,11 @@ document.getElementById('search-input').addEventListener('input', (e) => {
 });
 
 function addToCart(item) {
+    if (!window.currentShiftId) {
+        alert('يجب فتح وردية أولاً');
+        return;
+    }
+
     // Generate unique ID for cart item to handle same item with different notes
     const cartItemId = Date.now() + Math.random();
 
@@ -188,18 +203,18 @@ function renderCart() {
     });
 
     const taxRate = 0.15;
-    const taxAmount = (subtotal - currentDiscount) * taxRate;
-    const finalTotal = subtotal - currentDiscount + taxAmount;
+    const taxAmount = (subtotal - discountAmount) * taxRate;
+    const finalTotal = subtotal - discountAmount + taxAmount;
 
     document.getElementById('cart-subtotal').textContent = `$${subtotal.toFixed(2)}`;
-    document.getElementById('cart-discount').textContent = `$${currentDiscount.toFixed(2)}`;
+    document.getElementById('cart-discount').textContent = `$${discountAmount.toFixed(2)}`;
     document.getElementById('cart-tax').textContent = `$${taxAmount.toFixed(2)}`;
     document.getElementById('cart-total').textContent = `$${finalTotal.toFixed(2)}`;
 }
 
 // Discount & Hold
 document.getElementById('discount-btn').addEventListener('click', () => {
-    const discountVal = prompt(window.t('add_discount') + " (e.g., 5 for $5, or 10%):", currentDiscount);
+    const discountVal = prompt(window.t('add_discount') + " (e.g., 5 for $5, or 10%):", discountAmount);
     if (discountVal !== null && discountVal.trim() !== '') {
         const val = discountVal.trim();
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
@@ -226,7 +241,7 @@ document.getElementById('discount-btn').addEventListener('click', () => {
             return alert("Discount cannot exceed subtotal");
         }
 
-        currentDiscount = calculatedDiscount;
+        discountAmount = calculatedDiscount;
         renderCart();
     }
 });
@@ -246,7 +261,8 @@ document.getElementById('hold-btn').addEventListener('click', async () => {
         discountAmount = 0;
         currentCustomerId = null;
         selectedTableId = null;
-        document.getElementById('customer-display').innerHTML = '';
+        const custDisplay = document.getElementById('customer-display');
+        if (custDisplay) custDisplay.innerHTML = '';
         renderCart();
         alert("Order suspended successfully!");
     } catch (e) {
@@ -294,8 +310,9 @@ window.resumeOrder = async function(id, orderData) {
             id: i.item_id,
             name: i.item_name,
             price: i.price,
-            quantity: i.quantity,
-            notes: i.notes
+            qty: i.quantity,
+            cartItemId: i.id + Math.random(),
+            notes: i.notes || ''
         }));
 
         currentOrderType = order.order_type;
@@ -417,13 +434,42 @@ function renderTableMap() {
             div.innerHTML = `${escapeHtml(t.table_number)}<br><span style="font-size:10px;font-weight:normal;">Free</span>`;
         }
 
-        div.onclick = () => {
+        div.onclick = async () => {
             if (t.status === 'occupied') {
-                if (confirm(`Table ${t.table_number} is currently occupied. Do you want to open split-bill options?`)) {
-                    openSplitBill(t.current_order_id, t.table_number);
+                try {
+                    const order = await window.api.getOrder(t.current_order_id);
+                    if (order) {
+                        // Restore order to POS cart to add/remove items
+                        cart = order.items.map(i => ({
+                            id: i.item_id,
+                            name: i.item_name,
+                            price: i.price,
+                            qty: i.quantity,
+                            cartItemId: i.id + Math.random(),
+                            notes: i.notes || ''
+                        }));
+                        currentOrderType = 'Dine-in';
+                        document.querySelector('input[value="Dine-in"]').checked = true;
+
+                        document.getElementById('dinein-table-select').value = t.id;
+                        selectedTableId = t.id;
+                        discountAmount = order.discount || 0;
+                        currentCustomerId = order.customer_id;
+
+                        // Set global tracking variable if we wanted to update instead of create new order,
+                        // but for now, we will delete the old suspended order and re-suspend
+                        await window.api.deleteSuspendedOrder(order.id);
+
+                        renderCart();
+                        document.getElementById('table-map-modal').style.display = 'none';
+                    }
+                } catch(e) {
+                    console.error("Failed to load table order", e);
+                    alert("Failed to load table order.");
                 }
             } else {
                 document.getElementById('dinein-table-select').value = t.id;
+                selectedTableId = t.id;
                 document.getElementById('table-map-modal').style.display = 'none';
                 document.querySelector('input[value="Dine-in"]').checked = true;
             }
@@ -510,6 +556,10 @@ if (document.getElementById('cancel-split-btn')) {
 }
 
 document.getElementById('checkout-btn').addEventListener('click', async () => {
+    if (!window.currentShiftId) {
+        alert('يجب فتح وردية أولاً' || window.t('open_shift_first'));
+        return;
+    }
     if (cart.length === 0) {
         alert(window.t('cart_empty'));
         return;
@@ -528,8 +578,15 @@ document.getElementById('checkout-btn').addEventListener('click', async () => {
         }
     }
 
+    // Calculate total to populate payment modal
+    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    const taxRate = 0.15;
+    const taxAmount = (subtotal - discountAmount) * taxRate;
+    const finalTotal = subtotal - discountAmount + taxAmount;
+
     // Open Payment Modal instead of direct submit
     document.getElementById('payment-modal').style.display = 'flex';
+    document.getElementById('payment-amount-input').value = finalTotal.toFixed(2);
     document.getElementById('change-amount').textContent = "$0.00";
     setPaymentMethod('Cash');
 });
@@ -556,7 +613,7 @@ document.querySelectorAll('.quick-cash-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
         const val = parseFloat(e.currentTarget.getAttribute('data-val'));
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-        const total = subtotal - currentDiscount + ((subtotal - currentDiscount) * 0.15);
+        const total = subtotal - discountAmount + ((subtotal - discountAmount) * 0.15);
 
         const change = val - total;
         if (change >= 0) {
@@ -580,20 +637,27 @@ document.getElementById('confirm-payment-btn').addEventListener('click', async (
     const userId = window.currentUser ? window.currentUser.id : null;
 
     try {
-        const orderId = await window.api.submitOrder(
+        const orderIdObj = await window.api.submitOrder(
             cart, currentOrderType, currentCustomerId, paymentMethod,
             discountAmount, currentShiftId, pointsRedeemed, selectedTableId, userId, driverId
         );
 
-        await printReceiptLocally(orderId);
+        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        const taxRate = 0.15;
+        const taxAmount = (subtotal - discountAmount) * taxRate;
+        const finalTotal = subtotal - discountAmount + taxAmount;
+
+        // Uses the existing reliable receipt generator instead of undefined local alias
+        await printReceipt(orderIdObj.orderId, cart, currentOrderType, subtotal, discountAmount, taxAmount, finalTotal, paymentMethod);
 
         cart = [];
         discountAmount = 0;
         currentCustomerId = null;
         selectedTableId = null;
-        document.getElementById('customer-display').innerHTML = '';
+        const custDisplay2 = document.getElementById('customer-display');
+        if (custDisplay2) custDisplay2.innerHTML = '';
         renderCart();
-        document.getElementById('checkout-modal').style.display = 'none';
+        document.getElementById('payment-modal').style.display = 'none';
 
         if (currentOrderType === 'Dine-in') {
             loadTablesForSelection();
@@ -711,20 +775,32 @@ function printStationTickets(orderId, orderCart, type) {
 document.getElementById('submit-open-shift-btn').addEventListener('click', async () => {
     const name = document.getElementById('shift-cashier-name').value.trim();
     const startingCash = parseFloat(document.getElementById('shift-starting-cash').value);
+    const userId = window.currentUser ? window.currentUser.id : null;
 
     if (!name || isNaN(startingCash)) return alert(window.t('fill_all_fields'));
+    if (!userId) return alert('No user logged in.');
 
     try {
-        const shift = await window.api.openShift(name, startingCash);
+        const shift = await window.api.openShift(userId, name, startingCash);
         currentShiftId = shift.id;
         window.currentShiftId = shift.id;
         document.getElementById('open-shift-modal').style.display = 'none';
+
+        // Update top-right display
+        document.getElementById('current-cashier-name').textContent = name;
+
+        alert(`Shift opened successfully for ${name}.`);
     } catch (e) {
         console.error("Failed to open shift", e);
+        alert(e.message || "Failed to open shift.");
     }
 });
 
 document.getElementById('close-shift-btn').addEventListener('click', () => {
+    if (!window.currentShiftId) {
+        alert('لا توجد وردية مفتوحة' || window.t('no_open_shift'));
+        return;
+    }
     document.getElementById('close-shift-modal').style.display = 'flex';
 });
 
@@ -744,13 +820,14 @@ document.getElementById('submit-close-shift-btn').addEventListener('click', asyn
 
         currentShiftId = null;
         window.currentShiftId = null;
+        document.getElementById('current-cashier-name').textContent = "No Shift";
         document.getElementById('shift-cashier-name').value = '';
         document.getElementById('shift-starting-cash').value = '';
         document.getElementById('shift-actual-cash').value = '';
-        document.getElementById('open-shift-modal').style.display = 'flex';
-
+        alert('Shift closed successfully.');
     } catch (e) {
-        console.error("Failed to close shift", e);
+        console.error(e);
+        alert("Failed to close shift");
     }
 });
 
@@ -816,6 +893,13 @@ async function printZReport(shiftId, expected, actual) {
 const startShiftBtn = document.getElementById('open-shift-manual-btn');
 if (startShiftBtn) {
     startShiftBtn.addEventListener('click', () => {
+        if (window.currentShiftId) {
+            alert('يوجد وردية مفتوحة بالفعل' || window.t('shift_already_open'));
+            return;
+        }
+        if (window.currentUser) {
+            document.getElementById('shift-cashier-name').value = window.currentUser.username;
+        }
         document.getElementById('open-shift-modal').style.display = 'flex';
     });
 }
