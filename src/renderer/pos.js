@@ -568,14 +568,26 @@ document.getElementById('checkout-btn').addEventListener('click', async () => {
     const orderType = document.querySelector('input[name="orderType"]:checked').value;
 
     if (orderType === 'Delivery') {
+        const driverId = document.getElementById('delivery-driver-select').value;
+        if (!driverId) {
+            alert('يجب اختيار مندوب لطلبات التوصيل' || window.t('select_driver'));
+            return;
+        }
         const phone = document.getElementById('cust-phone').value.trim();
         const name = document.getElementById('cust-name').value.trim();
         const address = document.getElementById('cust-address').value.trim();
 
-        if (!phone || !name || !address) {
-            alert(window.t('fill_all_cust'));
+        // Relaxed constraint to just driver, customer details optional in fast pos or can enforce:
+        if (!phone && !name && !address) {
+           // Allow delivery without customer if they just pick driver
+        }
+    } else if (orderType === 'Dine-in') {
+        const tableId = document.getElementById('dinein-table-select').value;
+        if (!tableId) {
+            alert('يجب اختيار ترابيزة' || window.t('select_table'));
             return;
         }
+        selectedTableId = tableId;
     }
 
     // Calculate total to populate payment modal
