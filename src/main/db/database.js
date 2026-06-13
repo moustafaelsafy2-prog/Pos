@@ -103,6 +103,8 @@ function setupSchema() {
         db.run(`ALTER TABLE orders ADD COLUMN is_synced INTEGER DEFAULT 0`, (err) => {});
         db.run(`ALTER TABLE orders ADD COLUMN user_id INTEGER`, (err) => {});
         db.run(`ALTER TABLE orders ADD COLUMN table_id INTEGER`, (err) => {});
+        db.run(`ALTER TABLE orders ADD COLUMN discount_type TEXT`, (err) => {});
+        db.run(`ALTER TABLE orders ADD COLUMN discount_amount REAL DEFAULT 0`, (err) => {});
 
         db.run(`CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, item_id INTEGER, quantity INTEGER NOT NULL, subtotal REAL NOT NULL, notes TEXT, status TEXT, FOREIGN KEY (order_id) REFERENCES orders (id), FOREIGN KEY (item_id) REFERENCES items (id))`);
 
@@ -968,7 +970,7 @@ function getDashboardStats(startDate = null, endDate = null) {
 }
 
 
-function submitOrder(cart, orderType, customerId, paymentMethod, discountAmount = 0, shiftId = null, pointsRedeemed = 0, tableId = null, userId = null, driverId = null) {
+function submitOrder(cart, orderType, customerId, paymentMethod, discountAmount = 0, shiftId = null, pointsRedeemed = 0, tableId = null, userId = null, driverId = null, discountType = null) {
     return new Promise((resolve, reject) => {
         let subtotal = 0;
         cart.forEach(item => subtotal += (item.price * item.qty));
@@ -979,9 +981,9 @@ function submitOrder(cart, orderType, customerId, paymentMethod, discountAmount 
         db.serialize(() => {
             db.run('BEGIN EXCLUSIVE TRANSACTION');
 
-            db.run(`INSERT INTO orders (order_type, status, subtotal, discount, tax_amount, total_amount, customer_id, payment_method, shift_id, table_id, user_id, driver_id)
-                   VALUES (?, 'Completed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [orderType, subtotal, discountAmount, taxAmount, total, customerId, paymentMethod, shiftId, tableId, userId, driverId], function(err) {
+            db.run(`INSERT INTO orders (order_type, status, subtotal, discount, tax_amount, total_amount, customer_id, payment_method, shift_id, table_id, user_id, driver_id, discount_type, discount_amount)
+                   VALUES (?, 'Completed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [orderType, subtotal, discountAmount, taxAmount, total, customerId, paymentMethod, shiftId, tableId, userId, driverId, discountType, discountAmount], function(err) {
                 if (err) {
                     console.error("[DB ERROR] submitOrder order insert failed:", err);
                     db.run('ROLLBACK');
@@ -1243,7 +1245,7 @@ function addWastage(inventoryId, quantity, reason) {
 }
 
 
-function suspendOrder(cart, orderType, customerId, discountAmount, tableId, driverId, userId, shiftId) {
+function suspendOrder(cart, orderType, customerId, discountAmount, tableId, driverId, userId, shiftId, discountType) {
     return new Promise((resolve, reject) => {
         let subtotal = 0;
         cart.forEach(item => { subtotal += item.price * item.qty; }); // Changed to item.qty
@@ -1254,8 +1256,8 @@ function suspendOrder(cart, orderType, customerId, discountAmount, tableId, driv
         console.log(`[DB] Suspending order... Shift: ${shiftId}, User: ${userId}, Table: ${tableId}`);
         db.serialize(() => {
             db.run("BEGIN TRANSACTION");
-            db.run(`INSERT INTO orders (shift_id, user_id, customer_id, driver_id, table_id, order_type, subtotal, tax_amount, discount, total_amount, status, is_settled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'suspended', 0)`,
-            [shiftId, userId, customerId, driverId, tableId, orderType, subtotal, taxAmount, discountAmount, totalAmount], function(err) {
+            db.run(`INSERT INTO orders (shift_id, user_id, customer_id, driver_id, table_id, order_type, subtotal, tax_amount, discount, total_amount, status, is_settled, discount_type, discount_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'suspended', 0, ?, ?)`,
+            [shiftId, userId, customerId, driverId, tableId, orderType, subtotal, taxAmount, discountAmount, totalAmount, discountType, discountAmount], function(err) {
                 if(err) {
                     console.error(`[DB ERROR] Failed to insert suspended order:`, err);
                     db.run("ROLLBACK"); return reject(err);
