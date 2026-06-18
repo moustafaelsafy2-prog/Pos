@@ -63,7 +63,7 @@ async function executeTabSwitch(tabId) {
     } else if (tabId === 'settings') {
         document.getElementById('main-settings').style.display = 'flex';
         if(window.loadSettingsData) window.loadSettingsData();
-        if(typeof loadNetworkConfig === 'function') loadNetworkConfig();
+        if(window.loadNetworkConfig) window.loadNetworkConfig();
     } else if (tabId === 'customers') {
         document.getElementById('main-customers').style.display = 'flex';
         if(window.loadCustomersData) window.loadCustomersData();
@@ -85,24 +85,7 @@ document.getElementById('cancel-pin-btn').addEventListener('click', () => {
     pendingTabId = null;
 });
 
-
-document.getElementById('login-password-input').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        document.getElementById('login-btn').click();
-    }
-});
-document.getElementById('login-username-input').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        document.getElementById('login-password-input').focus();
-    }
-});
-
-document.getElementById('login-btn').addEventListener('click', async (e) => {
-    const btn = e.target;
-    btn.disabled = true;
-    const originalText = btn.innerText;
-    btn.innerText = '...';
-
+document.getElementById('login-btn').addEventListener('click', async () => {
     const username = document.getElementById('login-username-input').value.trim();
     const password = document.getElementById('login-password-input').value.trim();
     try {
@@ -115,17 +98,27 @@ document.getElementById('login-btn').addEventListener('click', async (e) => {
             // Apply RBAC UI changes
             applyRoleRestrictions(user.role);
 
+            // Fetch active shift for this user
+            const activeShift = await window.api.getCurrentShift(user.id);
+            if (activeShift) {
+                window.currentShiftId = activeShift.id;
+                document.getElementById('current-cashier-name').textContent = user.username;
+            } else {
+                window.currentShiftId = null;
+                document.getElementById('current-cashier-name').textContent = "No Shift";
+                document.getElementById('shift-cashier-name').value = user.username;
+                // Automatically show open shift modal if in POS mode
+                document.getElementById('open-shift-modal').style.display = 'flex';
+            }
+
             // Start POS
             if(window.initPOS) window.initPOS();
         } else {
-            alert(window.t('invalid_pin') || 'Invalid Login');
+            alert(window.t('invalid_pin') || 'Invalid PIN');
             document.getElementById('login-password-input').value = '';
         }
     } catch (e) {
         console.error("Login failed:", e);
-    } finally {
-        btn.disabled = false;
-        btn.innerText = originalText;
     }
 });
 

@@ -57,4 +57,36 @@ document.getElementById('close-orders-modal-btn').addEventListener('click', () =
     document.getElementById('customer-orders-modal').style.display = 'none';
 });
 
+if (document.getElementById('add-customer-btn')) {
+    document.getElementById('add-customer-btn').addEventListener('click', () => {
+        document.getElementById('add-customer-modal').style.display = 'flex';
+    });
+
+    document.getElementById('cancel-add-customer-btn').addEventListener('click', () => {
+        document.getElementById('add-customer-modal').style.display = 'none';
+    });
+
+    document.getElementById('save-new-customer-btn').addEventListener('click', async () => {
+        const phone = document.getElementById('new-cust-phone').value.trim();
+        const name = document.getElementById('new-cust-name').value.trim();
+        const address = document.getElementById('new-cust-address').value.trim();
+
+        if (!phone || !name) {
+            return alert(window.t('fill_all_cust') || 'Please fill phone and name.');
+        }
+
+        try {
+            await window.api.saveCustomer({ id: null, phone, name, address });
+            document.getElementById('add-customer-modal').style.display = 'none';
+            document.getElementById('new-cust-phone').value = '';
+            document.getElementById('new-cust-name').value = '';
+            document.getElementById('new-cust-address').value = '';
+            loadCustomersData();
+        } catch (e) {
+            console.error(e);
+            alert(window.t('save_cust_fail') || 'Failed to save customer');
+        }
+    });
+}
+
 window.loadCustomersData = loadCustomersData;

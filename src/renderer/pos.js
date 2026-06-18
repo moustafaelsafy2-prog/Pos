@@ -6,24 +6,31 @@ function escapeHtml(unsafe) {
 let cart = [];
 let categories = [];
 let allItems = [];
-let currentDiscount = 0;
+let discountAmount = 0;
 let currentSearchTerm = '';
 let currentCategoryId = null;
 let currentShiftId = null;
 
+// Track Order State Globally
+let currentOrderType = 'Takeaway';
+let currentCustomerId = null;
+let selectedTableId = null;
+
 async function initPOS() {
     try {
-        // Check Shift Status first
-        const shift = await window.api.getCurrentShift();
+        // Check Shift Status first using currentUser id
+        const userId = window.currentUser ? window.currentUser.id : null;
+        const shift = await window.api.getCurrentShift(userId);
         if (shift) {
             currentShiftId = shift.id;
             window.currentShiftId = shift.id; // Expose globally for other modules like accounting
-            document.getElementById('open-shift-manual-btn').style.display = 'none'; // Hide button if shift is open
+            document.getElementById('current-cashier-name').textContent = shift.cashier_name;
         } else {
-            // Force user to open shift
+            window.currentShiftId = null;
+            if (window.currentUser) {
+                document.getElementById('shift-cashier-name').value = window.currentUser.username;
+            }
             document.getElementById('open-shift-modal').style.display = 'flex';
-        document.getElementById('open-shift-manual-btn').style.display = 'inline-block';
-            document.getElementById('open-shift-manual-btn').style.display = 'inline-block';
         }
 
         categories = await window.api.getCategories();
@@ -103,6 +110,11 @@ document.getElementById('search-input').addEventListener('input', (e) => {
 });
 
 function addToCart(item) {
+    if (!window.currentShiftId) {
+        alert('يجب فتح وردية أولاً');
+        return;
+    }
+
     // Generate unique ID for cart item to handle same item with different notes
     const cartItemId = Date.now() + Math.random();
 
@@ -191,18 +203,18 @@ function renderCart() {
     });
 
     const taxRate = 0.15;
-    const taxAmount = (subtotal - currentDiscount) * taxRate;
-    const finalTotal = subtotal - currentDiscount + taxAmount;
+    const taxAmount = (subtotal - discountAmount) * taxRate;
+    const finalTotal = subtotal - discountAmount + taxAmount;
 
     document.getElementById('cart-subtotal').textContent = `$${subtotal.toFixed(2)}`;
-    document.getElementById('cart-discount').textContent = `$${currentDiscount.toFixed(2)}`;
+    document.getElementById('cart-discount').textContent = `$${discountAmount.toFixed(2)}`;
     document.getElementById('cart-tax').textContent = `$${taxAmount.toFixed(2)}`;
     document.getElementById('cart-total').textContent = `$${finalTotal.toFixed(2)}`;
 }
 
 // Discount & Hold
 document.getElementById('discount-btn').addEventListener('click', () => {
-    const discountVal = prompt(window.t('add_discount') + " (e.g., 5 for $5, or 10%):", currentDiscount);
+    const discountVal = prompt(window.t('add_discount') + " (e.g., 5 for $5, or 10%):", discountAmount);
     if (discountVal !== null && discountVal.trim() !== '') {
         const val = discountVal.trim();
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
@@ -229,29 +241,96 @@ document.getElementById('discount-btn').addEventListener('click', () => {
             return alert("Discount cannot exceed subtotal");
         }
 
-        currentDiscount = calculatedDiscount;
+        discountAmount = calculatedDiscount;
         renderCart();
     }
 });
 
 let heldOrders = [];
-document.getElementById('hold-btn').addEventListener('click', () => {
-    if (cart.length === 0) return alert(window.t('cart_empty'));
-    heldOrders.push([...cart]);
-    cart = [];
-    currentDiscount = 0;
-    renderCart();
-    alert(`Order held. (${heldOrders.length} currently held)`);
+
+document.getElementById('hold-btn').addEventListener('click', async () => {
+    if (cart.length === 0) return;
+    if (!currentShiftId) return alert(window.t('shift_required') || "You must open a shift first!");
+
+    const driverId = currentOrderType === 'Delivery' ? document.getElementById('delivery-driver-select').value : null;
+    const userId = window.currentUser ? window.currentUser.id : null;
+
+    try {
+        await window.api.suspendOrder(cart, currentOrderType, currentCustomerId, discountAmount, selectedTableId, driverId, userId, currentShiftId);
+        cart = [];
+        discountAmount = 0;
+        currentCustomerId = null;
+        selectedTableId = null;
+        const custDisplay = document.getElementById('customer-display');
+        if (custDisplay) custDisplay.innerHTML = '';
+        renderCart();
+        alert("Order suspended successfully!");
+    } catch (e) {
+        console.error("Failed to suspend order:", e);
+        alert("Failed to suspend order.");
+    }
 });
 
-document.getElementById('resume-btn').addEventListener('click', () => {
-    if (heldOrders.length === 0) return alert("No held orders");
-    if (cart.length > 0) return alert("Please finish or hold the current order first");
 
-    cart = heldOrders.pop();
-    currentDiscount = 0;
-    renderCart();
+
+document.getElementById('resume-btn').addEventListener('click', async () => {
+    try {
+        const orders = await window.api.getSuspendedOrders();
+        if(!orders || orders.length === 0) return alert("No suspended orders.");
+
+        const list = document.getElementById('suspended-orders-list');
+        list.innerHTML = '';
+        orders.forEach(o => {
+            const div = document.createElement('div');
+            div.style.padding = "10px";
+            div.style.borderBottom = "1px solid #ccc";
+            div.style.display = "flex";
+            div.style.justifyContent = "space-between";
+            div.innerHTML = `
+                <div>
+                    <strong>Order #${o.id}</strong> - ${o.order_type} - Total: ${o.total_amount.toFixed(2)}
+                    <br><small>${new Date(o.order_date).toLocaleString()}</small>
+                </div>
+                <button class="custom-btn" style="background:var(--primary);" onclick="window.resumeOrder(${o.id}, '${encodeURIComponent(JSON.stringify(o))}')">Resume</button>
+            `;
+            list.appendChild(div);
+        });
+        document.getElementById('suspended-orders-modal').style.display = 'flex';
+    } catch (e) {
+        console.error(e);
+    }
 });
+
+window.resumeOrder = async function(id, orderData) {
+    try {
+        const order = JSON.parse(decodeURIComponent(orderData));
+        await window.api.deleteSuspendedOrder(id);
+
+        cart = order.items.map(i => ({
+            id: i.item_id,
+            name: i.item_name,
+            price: i.price,
+            qty: i.quantity,
+            cartItemId: i.id + Math.random(),
+            notes: i.notes || ''
+        }));
+
+        currentOrderType = order.order_type;
+        currentCustomerId = order.customer_id;
+        discountAmount = order.discount;
+        selectedTableId = order.table_id;
+
+        document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+        const typeBtn = document.querySelector(`[data-type="${currentOrderType}"]`);
+        if(typeBtn) typeBtn.classList.add('active');
+
+        document.getElementById('suspended-orders-modal').style.display = 'none';
+        renderCart();
+    } catch (e) {
+        console.error(e);
+    }
+};
+
 
 // Handle Order Type Change
 document.querySelectorAll('input[name="orderType"]').forEach(radio => {
@@ -355,13 +434,42 @@ function renderTableMap() {
             div.innerHTML = `${escapeHtml(t.table_number)}<br><span style="font-size:10px;font-weight:normal;">Free</span>`;
         }
 
-        div.onclick = () => {
+        div.onclick = async () => {
             if (t.status === 'occupied') {
-                if (confirm(`Table ${t.table_number} is currently occupied. Do you want to open split-bill options?`)) {
-                    openSplitBill(t.current_order_id, t.table_number);
+                try {
+                    const order = await window.api.getOrder(t.current_order_id);
+                    if (order) {
+                        // Restore order to POS cart to add/remove items
+                        cart = order.items.map(i => ({
+                            id: i.item_id,
+                            name: i.item_name,
+                            price: i.price,
+                            qty: i.quantity,
+                            cartItemId: i.id + Math.random(),
+                            notes: i.notes || ''
+                        }));
+                        currentOrderType = 'Dine-in';
+                        document.querySelector('input[value="Dine-in"]').checked = true;
+
+                        document.getElementById('dinein-table-select').value = t.id;
+                        selectedTableId = t.id;
+                        discountAmount = order.discount || 0;
+                        currentCustomerId = order.customer_id;
+
+                        // Set global tracking variable if we wanted to update instead of create new order,
+                        // but for now, we will delete the old suspended order and re-suspend
+                        await window.api.deleteSuspendedOrder(order.id);
+
+                        renderCart();
+                        document.getElementById('table-map-modal').style.display = 'none';
+                    }
+                } catch(e) {
+                    console.error("Failed to load table order", e);
+                    alert("Failed to load table order.");
                 }
             } else {
                 document.getElementById('dinein-table-select').value = t.id;
+                selectedTableId = t.id;
                 document.getElementById('table-map-modal').style.display = 'none';
                 document.querySelector('input[value="Dine-in"]').checked = true;
             }
@@ -448,6 +556,10 @@ if (document.getElementById('cancel-split-btn')) {
 }
 
 document.getElementById('checkout-btn').addEventListener('click', async () => {
+    if (!window.currentShiftId) {
+        alert('يجب فتح وردية أولاً' || window.t('open_shift_first'));
+        return;
+    }
     if (cart.length === 0) {
         alert(window.t('cart_empty'));
         return;
@@ -456,18 +568,37 @@ document.getElementById('checkout-btn').addEventListener('click', async () => {
     const orderType = document.querySelector('input[name="orderType"]:checked').value;
 
     if (orderType === 'Delivery') {
+        const driverId = document.getElementById('delivery-driver-select').value;
+        if (!driverId) {
+            alert('يجب اختيار مندوب لطلبات التوصيل' || window.t('select_driver'));
+            return;
+        }
         const phone = document.getElementById('cust-phone').value.trim();
         const name = document.getElementById('cust-name').value.trim();
         const address = document.getElementById('cust-address').value.trim();
 
-        if (!phone || !name || !address) {
-            alert(window.t('fill_all_cust'));
+        // Relaxed constraint to just driver, customer details optional in fast pos or can enforce:
+        if (!phone && !name && !address) {
+           // Allow delivery without customer if they just pick driver
+        }
+    } else if (orderType === 'Dine-in') {
+        const tableId = document.getElementById('dinein-table-select').value;
+        if (!tableId) {
+            alert('يجب اختيار ترابيزة' || window.t('select_table'));
             return;
         }
+        selectedTableId = tableId;
     }
+
+    // Calculate total to populate payment modal
+    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    const taxRate = 0.15;
+    const taxAmount = (subtotal - discountAmount) * taxRate;
+    const finalTotal = subtotal - discountAmount + taxAmount;
 
     // Open Payment Modal instead of direct submit
     document.getElementById('payment-modal').style.display = 'flex';
+    document.getElementById('payment-amount-input').value = finalTotal.toFixed(2);
     document.getElementById('change-amount').textContent = "$0.00";
     setPaymentMethod('Cash');
 });
@@ -494,7 +625,7 @@ document.querySelectorAll('.quick-cash-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
         const val = parseFloat(e.currentTarget.getAttribute('data-val'));
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-        const total = subtotal - currentDiscount + ((subtotal - currentDiscount) * 0.15);
+        const total = subtotal - discountAmount + ((subtotal - discountAmount) * 0.15);
 
         const change = val - total;
         if (change >= 0) {
@@ -509,109 +640,44 @@ document.getElementById('cancel-payment-btn').addEventListener('click', () => {
     document.getElementById('payment-modal').style.display = 'none';
 });
 
+
 document.getElementById('confirm-payment-btn').addEventListener('click', async () => {
-    const orderType = document.querySelector('input[name="orderType"]:checked').value;
-    let customerId = null;
+    const paymentMethod = document.getElementById('payment-method').value;
+    const pointsRedeemed = parseFloat(document.getElementById('use-points').value) || 0;
 
-    if (orderType === 'Delivery') {
-        const phone = document.getElementById('cust-phone').value.trim();
-        const name = document.getElementById('cust-name').value.trim();
-        const address = document.getElementById('cust-address').value.trim();
-        const idVal = document.getElementById('cust-id').value;
-
-        try {
-            customerId = await window.api.saveCustomer({
-                id: idVal ? parseInt(idVal) : null,
-                name,
-                phone,
-                address
-            });
-        } catch (e) {
-            console.error("Failed to save customer:", e);
-            alert(window.t('save_cust_fail'));
-            return;
-        }
-    }
+    const driverId = currentOrderType === 'Delivery' ? document.getElementById('delivery-driver-select').value : null;
+    const userId = window.currentUser ? window.currentUser.id : null;
 
     try {
-        let tableId = null;
-        if (orderType === 'Dine-in') {
-            const tableSelect = document.getElementById('dinein-table-select');
-            if (tableSelect && tableSelect.value) {
-                tableId = parseInt(tableSelect.value);
-            }
+        const orderIdObj = await window.api.submitOrder(
+            cart, currentOrderType, currentCustomerId, paymentMethod,
+            discountAmount, currentShiftId, pointsRedeemed, selectedTableId, userId, driverId
+        );
+
+        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+        const taxRate = 0.15;
+        const taxAmount = (subtotal - discountAmount) * taxRate;
+        const finalTotal = subtotal - discountAmount + taxAmount;
+
+        // Uses the existing reliable receipt generator instead of undefined local alias
+        await printReceipt(orderIdObj.orderId, cart, currentOrderType, subtotal, discountAmount, taxAmount, finalTotal, paymentMethod);
+
+        cart = [];
+        discountAmount = 0;
+        currentCustomerId = null;
+        selectedTableId = null;
+        const custDisplay2 = document.getElementById('customer-display');
+        if (custDisplay2) custDisplay2.innerHTML = '';
+        renderCart();
+        document.getElementById('payment-modal').style.display = 'none';
+
+        if (currentOrderType === 'Dine-in') {
+            loadTablesForSelection();
+            if (typeof loadTables === 'function') loadTables();
         }
-
-        const processCheckout = async () => {
-            // Note: pointsRedeemed variable requires initialization, let's use 0 safely or global
-            const currentPointsRedeemed = typeof pointsRedeemed !== 'undefined' ? pointsRedeemed : 0;
-            const result = await window.api.submitOrder(cart, orderType, customerId, currentPaymentMethod, currentDiscount, currentShiftId, currentPointsRedeemed, tableId);
-
-            if (tableId) {
-                if (typeof loadTables === 'function') await loadTables();
-                if (typeof renderTableMap === 'function') renderTableMap();
-            }
-
-            // Print Receipt
-            printReceipt(result.orderId, cart, orderType, result.subtotal, currentDiscount, result.taxAmount, result.total, currentPaymentMethod);
-
-            // Print Kitchen / Station Tickets
-            setTimeout(() => {
-                if (typeof printStationTickets === 'function') printStationTickets(result.orderId, cart, orderType);
-            }, 500);
-
-            const translatedType = orderType === 'Dine-in' ? window.t('dine_in') : (orderType === 'Takeaway' ? window.t('takeaway') : window.t('delivery'));
-            alert(window.t('order_success', { id: result.orderId, type: translatedType, total: result.total.toFixed(2) }));
-
-            // Reset Everything
-            cart = [];
-            currentDiscount = 0;
-            if (typeof pointsRedeemed !== 'undefined') pointsRedeemed = 0;
-            window.currentCustomerPoints = 0;
-            renderCart();
-
-            document.getElementById('cust-phone').value = "";
-            document.getElementById('cust-name').value = "";
-            document.getElementById('cust-address').value = "";
-            document.getElementById('cust-id').value = "";
-            const loyaltyContainer = document.getElementById('loyalty-points-container');
-            if (loyaltyContainer) loyaltyContainer.style.display = 'none';
-            document.querySelector('input[value="Dine-in"]').checked = true;
-            document.getElementById('customer-info-panel').style.display = 'none';
-
-            document.getElementById('payment-modal').style.display = 'none';
-        };
-
-        if (currentPaymentMethod === 'Card') {
-            // Simulate Payment Terminal Handshake
-            document.getElementById('payment-modal').style.display = 'none';
-            const terminalModal = document.getElementById('terminal-modal');
-            if (terminalModal) terminalModal.style.display = 'flex';
-
-            // Simulate 3 seconds of terminal processing time
-            let terminalTimer = setTimeout(() => {
-                if (terminalModal) terminalModal.style.display = 'none';
-                processCheckout();
-            }, 3000);
-
-            const cancelBtn = document.getElementById('cancel-terminal-btn');
-            if (cancelBtn) {
-                cancelBtn.onclick = () => {
-                    clearTimeout(terminalTimer);
-                    if (terminalModal) terminalModal.style.display = 'none';
-                    document.getElementById('payment-modal').style.display = 'flex';
-                    alert("Terminal transaction cancelled by cashier.");
-                };
-            }
-        } else {
-            await processCheckout();
-        }
-
     } catch (e) {
-        console.error("Checkout failed:", e);
-        alert(window.t('checkout_fail'));
-        const terminalModal = document.getElementById('terminal-modal');
-        if (terminalModal) terminalModal.style.display = 'none';
+        console.error("Payment failed", e);
+        alert("Payment failed");
     }
 });
 
@@ -721,21 +787,32 @@ function printStationTickets(orderId, orderCart, type) {
 document.getElementById('submit-open-shift-btn').addEventListener('click', async () => {
     const name = document.getElementById('shift-cashier-name').value.trim();
     const startingCash = parseFloat(document.getElementById('shift-starting-cash').value);
+    const userId = window.currentUser ? window.currentUser.id : null;
 
     if (!name || isNaN(startingCash)) return alert(window.t('fill_all_fields'));
+    if (!userId) return alert('No user logged in.');
 
     try {
-        const shift = await window.api.openShift(name, startingCash);
+        const shift = await window.api.openShift(userId, name, startingCash);
         currentShiftId = shift.id;
         window.currentShiftId = shift.id;
         document.getElementById('open-shift-modal').style.display = 'none';
-        document.getElementById('open-shift-manual-btn').style.display = 'none';
+
+        // Update top-right display
+        document.getElementById('current-cashier-name').textContent = name;
+
+        alert(`Shift opened successfully for ${name}.`);
     } catch (e) {
         console.error("Failed to open shift", e);
+        alert(e.message || "Failed to open shift.");
     }
 });
 
 document.getElementById('close-shift-btn').addEventListener('click', () => {
+    if (!window.currentShiftId) {
+        alert('لا توجد وردية مفتوحة' || window.t('no_open_shift'));
+        return;
+    }
     document.getElementById('close-shift-modal').style.display = 'flex';
 });
 
@@ -755,13 +832,14 @@ document.getElementById('submit-close-shift-btn').addEventListener('click', asyn
 
         currentShiftId = null;
         window.currentShiftId = null;
+        document.getElementById('current-cashier-name').textContent = "No Shift";
         document.getElementById('shift-cashier-name').value = '';
         document.getElementById('shift-starting-cash').value = '';
         document.getElementById('shift-actual-cash').value = '';
-        document.getElementById('open-shift-modal').style.display = 'flex';
-
+        alert('Shift closed successfully.');
     } catch (e) {
-        console.error("Failed to close shift", e);
+        console.error(e);
+        alert("Failed to close shift");
     }
 });
 
@@ -827,6 +905,13 @@ async function printZReport(shiftId, expected, actual) {
 const startShiftBtn = document.getElementById('open-shift-manual-btn');
 if (startShiftBtn) {
     startShiftBtn.addEventListener('click', () => {
+        if (window.currentShiftId) {
+            alert('يوجد وردية مفتوحة بالفعل' || window.t('shift_already_open'));
+            return;
+        }
+        if (window.currentUser) {
+            document.getElementById('shift-cashier-name').value = window.currentUser.username;
+        }
         document.getElementById('open-shift-modal').style.display = 'flex';
     });
 }
@@ -851,6 +936,7 @@ async function loadNetworkConfig() {
         }
     }
 }
+window.loadNetworkConfig = loadNetworkConfig;
 
 if(document.getElementById('save-network-btn')) {
     document.getElementById('save-network-btn').addEventListener('click', async () => {

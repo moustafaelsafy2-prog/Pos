@@ -291,6 +291,14 @@ function createWindow () {
   });
 
   mainWindow.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+  mainWindow.webContents.openDevTools();
+  mainWindow.webContents.on('console-message', (event, level, message, line, sourceId) => {
+      fs.appendFileSync('renderer_errors.log', `[Renderer Log] Level: ${level} | Line: ${line} | Source: ${sourceId} | Message: ${message}\n`);
+  });
+  mainWindow.webContents.on('render-process-gone', (event, details) => {
+      fs.appendFileSync('renderer_errors.log', `[Renderer Crash] ${JSON.stringify(details)}\n`);
+  });
+
 }
 
 const https = require('https');
@@ -377,8 +385,20 @@ ipcMain.handle('db-get-items', async () => {
     return await callDb('getItems', );
 });
 
-ipcMain.handle('db-submit-order', async (event, cart, orderType, customerId, paymentMethod, discount) => {
-    return await callDb('submitOrder', cart, orderType, customerId, paymentMethod, discount);
+ipcMain.handle('db-submit-order', async (event, cart, orderType, customerId, paymentMethod, discountAmount, shiftId, pointsRedeemed, tableId, userId, driverId) => {
+    return await callDb('submitOrder', cart, orderType, customerId, paymentMethod, discountAmount, shiftId, pointsRedeemed, tableId, userId, driverId);
+});
+
+ipcMain.handle('db-suspend-order', async (event, cart, orderType, customerId, discountAmount, tableId, driverId, userId, shiftId) => {
+    return await callDb('suspendOrder', cart, orderType, customerId, discountAmount, tableId, driverId, userId, shiftId);
+});
+
+ipcMain.handle('db-get-suspended-orders', async (event) => {
+    return await callDb('getSuspendedOrders');
+});
+
+ipcMain.handle('db-delete-suspended-order', async (event, orderId) => {
+    return await callDb('deleteSuspendedOrder', orderId);
 });
 
 ipcMain.handle('db-get-customer', async (event, phone) => {
@@ -407,6 +427,10 @@ ipcMain.handle('db-mark-order-ready', async (event, orderId) => {
 
 ipcMain.handle('db-refund-order', async (event, orderId) => {
     return await callDb('refundOrder', orderId);
+});
+
+ipcMain.handle('db-get-order', async (event, orderId) => {
+    return await callDb('getOrder', orderId);
 });
 
 ipcMain.handle('db-get-order-items', async (event, orderId) => {
@@ -552,12 +576,12 @@ ipcMain.handle('db-settle-driver', async (event, driverId) => {
     return await callDb('settleDriver', driverId);
 });
 
-ipcMain.handle('db-open-shift', async (event, name, cash) => {
-    return await callDb('openShift', name, cash);
+ipcMain.handle('db-open-shift', async (event, userId, name, cash) => {
+    return await callDb('openShift', userId, name, cash);
 });
 
-ipcMain.handle('db-get-shift', async () => {
-    return await callDb('getCurrentShift', );
+ipcMain.handle('db-get-shift', async (event, userId) => {
+    return await callDb('getCurrentShift', userId);
 });
 
 ipcMain.handle('db-close-shift', async (event, actualCash, shiftId) => {

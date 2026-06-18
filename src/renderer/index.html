@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="UTF-8">
-    <title data-i18n="app_title">Restaurant POS System</title>
+    <title data-i18n="app_title">Mongez Restaurant Management</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="pos.css">
   </head>
@@ -102,6 +102,9 @@
             <h1 data-i18n="app_title">Restaurant POS</h1>
             <div class="top-controls">
               <input type="text" id="search-input" data-i18n-placeholder="search_items" placeholder="Search items..." class="custom-input" style="margin-bottom: 0; width: 250px;">
+              <div id="shift-info-display" style="display: flex; align-items: center; gap: 10px; background: white; padding: 5px 15px; border-radius: 8px; font-weight: 600; font-size: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <span data-i18n="cashier">Cashier:</span> <span id="current-cashier-name" style="color: var(--primary);">No Shift</span>
+              </div>
               <button id="open-shift-manual-btn" class="custom-btn" style="background: var(--primary); margin: 0; width: auto;" data-i18n="start_shift">Start Shift</button>
               <button id="close-shift-btn" class="custom-btn" style="background: var(--dark); margin: 0; width: auto;" data-i18n="close_shift">Close Shift</button>
               <button class="lang-btn" onclick="window.setLanguage('en')">EN</button>
@@ -609,7 +612,10 @@
       <div id="main-customers" style="display: none; flex: 1; flex-direction: column; overflow-y: auto; background: var(--gray-bg); padding: 40px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 40px;">
           <h1 data-i18n="nav_customers" style="margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">Customers</h1>
-          <button id="refresh-customers-btn" class="secondary-btn" style="width: auto; padding: 10px 24px;" data-i18n="refresh">Refresh</button>
+          <div style="display: flex; gap: 10px;">
+            <button id="add-customer-btn" class="custom-btn" style="background: var(--primary); color: white; width: auto; padding: 10px 24px; margin-bottom: 0;" data-i18n="add_customer">Add Customer</button>
+            <button id="refresh-customers-btn" class="secondary-btn" style="width: auto; padding: 10px 24px;" data-i18n="refresh">Refresh</button>
+          </div>
         </div>
 
         <div class="chart-card">
@@ -627,6 +633,20 @@
           </table>
         </div>
       </div>
+
+    <!-- Add Customer Modal -->
+    <div id="add-customer-modal" class="modal" style="display:none; z-index: 2000;">
+      <div class="modal-content" style="max-width: 500px;">
+        <h2 style="color: var(--primary); margin-bottom: 20px;" data-i18n="add_customer">Add Customer</h2>
+        <input type="text" id="new-cust-phone" class="custom-input" data-i18n-placeholder="phone_placeholder" placeholder="Phone Number">
+        <input type="text" id="new-cust-name" class="custom-input" data-i18n-placeholder="name_placeholder" placeholder="Name">
+        <input type="text" id="new-cust-address" class="custom-input" data-i18n-placeholder="address_placeholder" placeholder="Address">
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button id="cancel-add-customer-btn" class="custom-btn" style="background: var(--gray-border); color: var(--dark);" data-i18n="cancel">Cancel</button>
+            <button id="save-new-customer-btn" class="custom-btn" style="background: var(--primary); color: white;" data-i18n="save">Save</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Create PO Modal -->
     <div id="create-po-modal" class="modal" style="display:none; z-index: 2000;">
@@ -799,7 +819,7 @@
     <div id="open-shift-modal" class="modal" style="display:none; z-index: 3000;">
       <div class="modal-content" style="max-width: 400px; text-align: center;">
         <h2 data-i18n="open_shift">Open Shift</h2>
-        <input type="text" id="shift-cashier-name" class="custom-input" data-i18n-placeholder="cashier_name" placeholder="Cashier Name">
+        <input type="text" id="shift-cashier-name" class="custom-input" readonly style="background: #f0f0f0; cursor: not-allowed;" placeholder="Cashier Name">
         <input type="number" id="shift-starting-cash" class="custom-input" data-i18n-placeholder="starting_cash" placeholder="Starting Cash in Drawer ($)">
         <button id="submit-open-shift-btn" class="custom-btn" style="background: var(--primary); color: white; margin-top: 15px;" data-i18n="start_shift">Start Shift</button>
       </div>
@@ -915,18 +935,7 @@
       </div>
     </div>
 
-    <!-- Chart.js from node_modules or CDN (We installed it, so we'll reference it or include a script to require it in renderer if nodeIntegration is false, but wait, nodeIntegration is false, so we need to either load it via script tag locally if we copy it, or build it. We will use a script tag to the local node_modules file since this is a local app and we don't have a bundler setup yet for the renderer.) -->
-    <!-- For security and simplicity in this architecture, we will load Chart.js locally. We installed it via npm, so it is in node_modules/chart.js/dist/chart.umd.js -->
-    <script src="../../node_modules/chart.js/dist/chart.umd.js"></script>
-
-    <script src="i18n.js"></script>
-    <script src="pos.js"></script>
-    <script src="dashboard.js"></script>
     <!-- Print Receipt Container (Hidden on screen, shown on print) -->
-
-    <!-- Added missing kitchen receipt container -->
-    <div id="kitchen-receipt-container" style="display: none; padding: 20mm; font-family: 'Courier New', Courier, monospace;"></div>
-
     <div id="receipt-container" style="display: none;">
       <!-- Content populated by JS -->
     </div>
@@ -946,6 +955,17 @@
         </div>
     </div>
 
+    <!-- Suspended Orders Modal -->
+    <div id="suspended-orders-modal" class="modal" style="display:none; z-index: 5000;">
+      <div class="modal-content" style="max-width: 500px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+          <h2 style="margin: 0;">Suspended Orders</h2>
+          <button class="custom-btn" style="margin: 0; background: var(--dark);" onclick="document.getElementById('suspended-orders-modal').style.display='none'">Close</button>
+        </div>
+        <div id="suspended-orders-list" style="max-height: 400px; overflow-y: auto; text-align: left;"></div>
+      </div>
+    </div>
+
     <!-- Split Bill Modal -->
     <div id="split-bill-modal" class="modal" style="display: none;">
         <div class="modal-content glass-panel">
@@ -960,6 +980,13 @@
         </div>
     </div>
 
+    <!-- Chart.js from node_modules or CDN (We installed it, so we'll reference it or include a script to require it in renderer if nodeIntegration is false, but wait, nodeIntegration is false, so we need to either load it via script tag locally if we copy it, or build it. We will use a script tag to the local node_modules file since this is a local app and we don't have a bundler setup yet for the renderer.) -->
+    <!-- For security and simplicity in this architecture, we will load Chart.js locally. We installed it via npm, so it is in node_modules/chart.js/dist/chart.umd.js -->
+    <script src="../../node_modules/chart.js/dist/chart.umd.js"></script>
+
+    <script src="i18n.js"></script>
+    <script src="pos.js"></script>
+    <script src="dashboard.js"></script>
     <script src="accounting.js"></script>
     <script src="inventory.js"></script>
     <script src="menu.js"></script>

@@ -89,16 +89,19 @@ function setupSchema() {
         db.run(`CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, category_id INTEGER, name TEXT NOT NULL, price REAL NOT NULL, image_url TEXT, FOREIGN KEY (category_id) REFERENCES categories (id))`);
         db.run(`CREATE TABLE IF NOT EXISTS customers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT UNIQUE, address TEXT)`);
         db.run(`CREATE TABLE IF NOT EXISTS drivers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, phone TEXT)`);
-        db.run(`CREATE TABLE IF NOT EXISTS shifts (id INTEGER PRIMARY KEY AUTOINCREMENT, cashier_name TEXT NOT NULL, start_time DATETIME DEFAULT CURRENT_TIMESTAMP, end_time DATETIME, starting_cash REAL DEFAULT 0, expected_cash REAL DEFAULT 0, actual_cash REAL DEFAULT 0, status TEXT DEFAULT 'open', is_audited INTEGER DEFAULT 0)`);
+        db.run(`CREATE TABLE IF NOT EXISTS shifts (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, cashier_name TEXT NOT NULL, start_time DATETIME DEFAULT CURRENT_TIMESTAMP, end_time DATETIME, starting_cash REAL DEFAULT 0, expected_cash REAL DEFAULT 0, actual_cash REAL DEFAULT 0, status TEXT DEFAULT 'open', is_audited INTEGER DEFAULT 0)`);
 
         db.run(`ALTER TABLE shifts ADD COLUMN is_audited INTEGER DEFAULT 0`, (err) => {
+        });
+        db.run(`ALTER TABLE shifts ADD COLUMN user_id INTEGER`, (err) => {
             // Ignore if exists
         });
         db.run(`CREATE TABLE IF NOT EXISTS restaurant_tables (id INTEGER PRIMARY KEY AUTOINCREMENT, table_number TEXT NOT NULL, status TEXT DEFAULT 'available', current_order_id INTEGER, FOREIGN KEY (current_order_id) REFERENCES orders (id))`);
 
-        db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, shift_id INTEGER, customer_id INTEGER, driver_id INTEGER, table_id INTEGER, order_type TEXT DEFAULT 'Dine-in', subtotal REAL DEFAULT 0, tax_amount REAL DEFAULT 0, discount REAL DEFAULT 0, total_amount REAL NOT NULL, payment_method TEXT DEFAULT 'Cash', order_date DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'preparing', is_settled INTEGER DEFAULT 0, is_synced INTEGER DEFAULT 0, FOREIGN KEY (customer_id) REFERENCES customers (id), FOREIGN KEY (shift_id) REFERENCES shifts (id), FOREIGN KEY (driver_id) REFERENCES drivers (id), FOREIGN KEY (table_id) REFERENCES restaurant_tables (id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, shift_id INTEGER, user_id INTEGER, customer_id INTEGER, driver_id INTEGER, table_id INTEGER, order_type TEXT DEFAULT 'Dine-in', subtotal REAL DEFAULT 0, tax_amount REAL DEFAULT 0, discount REAL DEFAULT 0, total_amount REAL NOT NULL, payment_method TEXT DEFAULT 'Cash', order_date DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'preparing', is_settled INTEGER DEFAULT 0, is_synced INTEGER DEFAULT 0, FOREIGN KEY (customer_id) REFERENCES customers (id), FOREIGN KEY (shift_id) REFERENCES shifts (id), FOREIGN KEY (driver_id) REFERENCES drivers (id), FOREIGN KEY (table_id) REFERENCES restaurant_tables (id))`);
 
         db.run(`ALTER TABLE orders ADD COLUMN is_synced INTEGER DEFAULT 0`, (err) => {});
+        db.run(`ALTER TABLE orders ADD COLUMN user_id INTEGER`, (err) => {});
         db.run(`ALTER TABLE orders ADD COLUMN table_id INTEGER`, (err) => {});
 
         db.run(`CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, item_id INTEGER, quantity INTEGER NOT NULL, subtotal REAL NOT NULL, notes TEXT, status TEXT, FOREIGN KEY (order_id) REFERENCES orders (id), FOREIGN KEY (item_id) REFERENCES items (id))`);
@@ -497,24 +500,18 @@ function saveSettings(storeName, taxNumber, syncUrl) {
 
 function loginUser(username, password) {
     return new Promise((resolve, reject) => {
-        db.all("SELECT * FROM users WHERE username = ?", [username], async (err, rows) => {
+        db.all("SELECT * FROM users WHERE username = ?", [username], (err, rows) => {
             if (err) return reject(err);
             if (!rows || rows.length === 0) return resolve(null);
-
-            for (let row of rows) {
+            const user = rows.find(row => {
                 try {
-                    const match = await bcrypt.compare(password, row.password);
-                    if (match) return resolve(row);
-                    // Legacy pin check (handling errors gracefully)
-                    if (row.pin) {
-                        const pinMatch = await bcrypt.compare(password, row.pin);
-                        if (pinMatch) return resolve(row);
-                    }
-                } catch(e) {
-                    // Ignore compare errors and continue
+                    return bcrypt.compareSync(password, row.password || '') || bcrypt.compareSync(password, row.pin || '');
+                } catch (e) {
+                    console.error('Bcrypt compare error:', e);
+                    return false;
                 }
-            }
-            resolve(null);
+            });
+            resolve(user || null);
         });
     });
 }
@@ -539,10 +536,11 @@ function addUser(name, username, password, role) {
 
 function verifyMasterPassword(password) {
     return new Promise((resolve) => {
-        bcrypt.compare(password, MASTER_PASSWORD_HASH, (err, result) => {
-            if (err) return resolve(false);
-            resolve(result);
-        });
+        try {
+            resolve(bcrypt.compareSync(password, MASTER_PASSWORD_HASH));
+        } catch (e) {
+            resolve(false);
+        }
     });
 }
 
@@ -681,20 +679,32 @@ function getInventory() {
     });
 }
 
-function openShift(cashierName, startingCash) {
+function openShift(userId, cashierName, startingCash) {
     return new Promise((resolve, reject) => {
-        db.run(`INSERT INTO shifts (cashier_name, starting_cash, status) VALUES (?, ?, 'open')`,
-        [cashierName, startingCash], function(err) {
-            if (err) reject(err); else resolve({ id: this.lastID, cashier_name: cashierName, starting_cash: startingCash });
+        // Prevent opening if one is already open for this user
+        db.get(`SELECT id FROM shifts WHERE user_id = ? AND status = 'open'`, [userId], (err, row) => {
+            if (err) return reject(err);
+            if (row) return reject(new Error("User already has an open shift."));
+
+            db.run(`INSERT INTO shifts (user_id, cashier_name, starting_cash, status) VALUES (?, ?, ?, 'open')`,
+            [userId, cashierName, startingCash], function(err) {
+                if (err) reject(err); else resolve({ id: this.lastID, user_id: userId, cashier_name: cashierName, starting_cash: startingCash });
+            });
         });
     });
 }
 
-function getCurrentShift() {
+function getCurrentShift(userId) {
     return new Promise((resolve, reject) => {
-        db.get(`SELECT * FROM shifts WHERE status = 'open' ORDER BY id DESC LIMIT 1`, [], (err, row) => {
-            if (err) reject(err); else resolve(row || null);
-        });
+        if (!userId) {
+            db.get(`SELECT * FROM shifts WHERE status = 'open' ORDER BY id DESC LIMIT 1`, [], (err, row) => {
+                if (err) reject(err); else resolve(row || null);
+            });
+        } else {
+            db.get(`SELECT * FROM shifts WHERE status = 'open' AND user_id = ? ORDER BY id DESC LIMIT 1`, [userId], (err, row) => {
+                if (err) reject(err); else resolve(row || null);
+            });
+        }
     });
 }
 
@@ -958,7 +968,7 @@ function getDashboardStats(startDate = null, endDate = null) {
 }
 
 
-function submitOrder(cart, orderType, customerId, paymentMethod, discountAmount = 0, shiftId = null, pointsRedeemed = 0, tableId = null) {
+function submitOrder(cart, orderType, customerId, paymentMethod, discountAmount = 0, shiftId = null, pointsRedeemed = 0, tableId = null, userId = null, driverId = null) {
     return new Promise((resolve, reject) => {
         let subtotal = 0;
         cart.forEach(item => subtotal += (item.price * item.qty));
@@ -969,10 +979,11 @@ function submitOrder(cart, orderType, customerId, paymentMethod, discountAmount 
         db.serialize(() => {
             db.run('BEGIN EXCLUSIVE TRANSACTION');
 
-            db.run(`INSERT INTO orders (type, status, subtotal, discount, tax, total, customer_id, payment_method, shift_id, table_id)
-                   VALUES (?, 'Completed', ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [orderType, subtotal, discountAmount, taxAmount, total, customerId, paymentMethod, shiftId, tableId], function(err) {
+            db.run(`INSERT INTO orders (order_type, status, subtotal, discount, tax_amount, total_amount, customer_id, payment_method, shift_id, table_id, user_id, driver_id)
+                   VALUES (?, 'Completed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [orderType, subtotal, discountAmount, taxAmount, total, customerId, paymentMethod, shiftId, tableId, userId, driverId], function(err) {
                 if (err) {
+                    console.error("[DB ERROR] submitOrder order insert failed:", err);
                     db.run('ROLLBACK');
                     return reject(err);
                 }
@@ -997,7 +1008,7 @@ function submitOrder(cart, orderType, customerId, paymentMethod, discountAmount 
                         }
 
                         // Adjust Inventory sequentially inside the transaction via triggers or direct queries would be better, but doing it safely
-                        db.all(`SELECT inventory_id, quantity FROM recipes WHERE item_id = ?`, [item.id], (err3, recipeRows) => {
+                        db.all(`SELECT inventory_id, quantity_required FROM recipes WHERE item_id = ?`, [item.id], (err3, recipeRows) => {
                             if (err3 && !hasError) {
                                 hasError = true;
                                 db.run('ROLLBACK');
@@ -1009,8 +1020,8 @@ function submitOrder(cart, orderType, customerId, paymentMethod, discountAmount 
                                 checkDone();
                             } else {
                                 recipeRows.forEach(r => {
-                                    const qtyToDeduct = r.quantity * item.qty;
-                                    db.run(`UPDATE inventory SET stock = stock - ? WHERE id = ?`, [qtyToDeduct, r.inventory_id], (err4) => {
+                                    const qtyToDeduct = r.quantity_required * item.qty;
+                                    db.run(`UPDATE inventory SET current_stock = current_stock - ? WHERE id = ?`, [qtyToDeduct, r.inventory_id], (err4) => {
                                         if (err4 && !hasError) {
                                             hasError = true;
                                             db.run('ROLLBACK');
@@ -1027,7 +1038,8 @@ function submitOrder(cart, orderType, customerId, paymentMethod, discountAmount 
                             itemsProcessed++;
                             if (itemsProcessed === cart.length && !hasError) {
                                 if (tableId && orderType === 'Dine-in') {
-                                    db.run(`UPDATE tables SET status = 'occupied', current_order_id = ? WHERE id = ?`, [orderId, tableId], (err5) => {
+                                    // Order is completed, table becomes available
+                                    db.run(`UPDATE restaurant_tables SET status = 'available', current_order_id = NULL WHERE id = ?`, [tableId], (err5) => {
                                         if (err5) {
                                             db.run('ROLLBACK');
                                             return reject(err5);
@@ -1212,12 +1224,12 @@ function addWastage(inventoryId, quantity, reason) {
     return new Promise((resolve, reject) => {
         db.serialize(() => {
             db.run('BEGIN TRANSACTION');
-            db.run(`INSERT INTO wastage (inventory_id, quantity, reason) VALUES (?, ?, ?)`, [inventoryId, quantity, reason], (err) => {
+            db.run('INSERT INTO wastage (inventory_id, quantity, reason) VALUES (?, ?, ?)', [inventoryId, quantity, reason], (err) => {
                 if (err) {
                     db.run('ROLLBACK');
                     return reject(err);
                 }
-                db.run(`UPDATE inventory SET stock = stock - ? WHERE id = ?`, [quantity, inventoryId], (err2) => {
+                db.run(`UPDATE inventory SET current_stock = current_stock - ? WHERE id = ?`, [quantity, inventoryId], (err2) => {
                     if (err2) {
                         db.run('ROLLBACK');
                         return reject(err2);
@@ -1230,9 +1242,124 @@ function addWastage(inventoryId, quantity, reason) {
     });
 }
 
+
+function suspendOrder(cart, orderType, customerId, discountAmount, tableId, driverId, userId, shiftId) {
+    return new Promise((resolve, reject) => {
+        let subtotal = 0;
+        cart.forEach(item => { subtotal += item.price * item.qty; }); // Changed to item.qty
+        const totalAfterDiscount = subtotal - discountAmount;
+        const taxAmount = totalAfterDiscount * 0.15;
+        const totalAmount = totalAfterDiscount + taxAmount;
+
+        console.log(`[DB] Suspending order... Shift: ${shiftId}, User: ${userId}, Table: ${tableId}`);
+        db.serialize(() => {
+            db.run("BEGIN TRANSACTION");
+            db.run(`INSERT INTO orders (shift_id, user_id, customer_id, driver_id, table_id, order_type, subtotal, tax_amount, discount, total_amount, status, is_settled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'suspended', 0)`,
+            [shiftId, userId, customerId, driverId, tableId, orderType, subtotal, taxAmount, discountAmount, totalAmount], function(err) {
+                if(err) {
+                    console.error(`[DB ERROR] Failed to insert suspended order:`, err);
+                    db.run("ROLLBACK"); return reject(err);
+                }
+                const orderId = this.lastID;
+                console.log(`[DB] Suspended order created with ID: ${orderId}`);
+
+                const stmt = db.prepare(`INSERT INTO order_items (order_id, item_id, quantity, subtotal, notes) VALUES (?, ?, ?, ?, ?)`);
+                let errors = null;
+
+                cart.forEach(item => {
+                    const itemSubtotal = item.price * item.qty;
+                    stmt.run([orderId, item.id, item.qty, itemSubtotal, item.notes || ''], (err) => {
+                        if (err) {
+                            console.error(`[DB ERROR] Failed to insert suspended item ${item.id}:`, err);
+                            errors = err;
+                        }
+                    });
+                });
+
+                stmt.finalize((err) => {
+                    if (errors || err) {
+                        console.error(`[DB ERROR] Finalizing order items failed:`, errors || err);
+                        db.run("ROLLBACK");
+                        reject(errors || err || new Error("Failed to insert suspended items"));
+                    } else {
+                        if (tableId && orderType === 'Dine-in') {
+                            console.log(`[DB] Updating table ${tableId} to occupied`);
+                            db.run(`UPDATE restaurant_tables SET status = 'occupied', current_order_id = ? WHERE id = ?`, [orderId, tableId], (err) => {
+                                if(err) {
+                                    console.error(`[DB ERROR] Failed to update table status:`, err);
+                                    db.run("ROLLBACK"); return reject(err);
+                                }
+                                db.run("COMMIT", () => resolve(orderId));
+                            });
+                        } else {
+                            db.run("COMMIT", () => resolve(orderId));
+                        }
+                    }
+                });
+            });
+        });
+    });
+}
+
+function getSuspendedOrders() {
+    return new Promise((resolve, reject) => {
+        console.log(`[DB] Fetching suspended orders...`);
+        db.all(`SELECT * FROM orders WHERE status = 'suspended'`, [], (err, rows) => {
+            if (err) {
+                console.error(`[DB ERROR] Failed to fetch suspended orders:`, err);
+                return reject(err);
+            }
+            if (!rows || rows.length === 0) {
+                console.log(`[DB] No suspended orders found.`);
+                return resolve([]);
+            }
+
+            let completed = 0;
+            rows.forEach(row => {
+                db.all(`SELECT oi.*, i.name as item_name, i.price FROM order_items oi JOIN items i ON oi.item_id = i.id WHERE oi.order_id = ?`, [row.id], (err, items) => {
+                    if (err) console.error(`[DB ERROR] Failed to fetch items for order ${row.id}:`, err);
+                    row.items = items || [];
+                    completed++;
+                    if (completed === rows.length) {
+                        console.log(`[DB] Fetched ${rows.length} suspended orders.`);
+                        resolve(rows);
+                    }
+                });
+            });
+        });
+    });
+}
+
+function getOrder(orderId) {
+    return new Promise((resolve, reject) => {
+        db.get(`SELECT * FROM orders WHERE id = ?`, [orderId], (err, row) => {
+            if (err) return reject(err);
+            if (!row) return resolve(null);
+
+            db.all(`SELECT oi.*, i.name as item_name, i.price FROM order_items oi JOIN items i ON oi.item_id = i.id WHERE oi.order_id = ?`, [orderId], (err, items) => {
+                row.items = items || [];
+                resolve(row);
+            });
+        });
+    });
+}
+
+function deleteSuspendedOrder(orderId) {
+    return new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.run("BEGIN TRANSACTION");
+            // Free the table
+            db.run(`UPDATE restaurant_tables SET status = 'available', current_order_id = NULL WHERE current_order_id = ?`, [orderId]);
+            db.run(`DELETE FROM order_items WHERE order_id = ?`, [orderId]);
+            db.run(`DELETE FROM orders WHERE id = ?`, [orderId], function(err) {
+                if (err) { db.run("ROLLBACK"); reject(err); }
+                else { db.run("COMMIT", () => resolve(this.changes)); }
+            });
+        });
+    });
+}
+
 module.exports = {
-    getOrderItems,
-    refundOrderItems,
     getTables,
     addTable,
     getWastage,
@@ -1252,6 +1379,9 @@ module.exports = {
     getUnsyncedOrders,
     markOrdersSynced,
     submitOrder,
+suspendOrder,
+getSuspendedOrders,
+deleteSuspendedOrder,
     checkLicense,
     activateLicense,
     getCustomerByPhone,
@@ -1261,6 +1391,9 @@ module.exports = {
     getTodayOrders,
     markOrderReady,
     refundOrder,
+    getOrder,
+    getOrderItems,
+    refundOrderItems,
     saveCustomer,
     getDashboardStats,
     getInventory,

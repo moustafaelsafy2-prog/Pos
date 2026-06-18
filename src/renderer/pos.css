@@ -1,28 +1,28 @@
 :root {
-    --primary: #FF5A5F; /* Premium Coral */
-    --primary-hover: #FC642D;
-    --primary-light: rgba(255, 90, 95, 0.1);
+    --primary: #E63946; /* Richer Premium Red */
+    --primary-hover: #D62828;
+    --primary-light: rgba(230, 57, 70, 0.1);
 
-    --secondary: #00A699; /* Premium Teal */
-    --secondary-hover: #008489;
+    --secondary: #1D3557; /* Deep Navy Blue */
+    --secondary-hover: #457B9D;
 
-    --dark: #222222; /* AirBNB style soft black */
-    --gray-bg: #F7F7F9; /* Very soft off-white background */
-    --gray-card: rgba(255, 255, 255, 0.85); /* Glassmorphism base */
-    --gray-border: #EBEBEB;
-    --gray-text: #717171;
+    --dark: #111111; /* Deeper black */
+    --gray-bg: #F1FAEE; /* Fresh soft background */
+    --gray-card: rgba(255, 255, 255, 0.95); /* Better Glassmorphism base */
+    --gray-border: #E0E0E0;
+    --gray-text: #666666;
     --white: #ffffff;
 
-    --radius-sm: 12px;
-    --radius-md: 20px;
-    --radius-lg: 32px;
+    --radius-sm: 14px;
+    --radius-md: 24px;
+    --radius-lg: 36px;
 
-    --shadow-soft: 0 8px 28px rgba(0, 0, 0, 0.04);
-    --shadow-hover: 0 16px 32px rgba(0, 0, 0, 0.08);
-    --shadow-glass: 0 8px 32px rgba(31, 38, 135, 0.05);
+    --shadow-soft: 0 10px 40px rgba(0, 0, 0, 0.06);
+    --shadow-hover: 0 20px 50px rgba(0, 0, 0, 0.12);
+    --shadow-glass: 0 12px 40px rgba(0, 0, 0, 0.08);
 
-    --sidebar-width: 260px;
-    --glass-blur: blur(12px);
+    --sidebar-width: 280px;
+    --glass-blur: blur(20px);
 }
 
 * {
@@ -32,16 +32,18 @@
 
 body {
     font-family: 'Poppins', sans-serif;
-    background: linear-gradient(135deg, #FDFDFD 0%, #F0F2F5 100%);
+    background: linear-gradient(135deg, #F9FBFD 0%, #E9ECEF 100%);
     color: var(--dark);
     margin: 0;
     padding: 0;
     height: 100vh;
     overflow: hidden;
+    font-size: 16px;
 }
 
 [dir="rtl"] body {
     font-family: 'Cairo', sans-serif;
+    font-size: 17px;
 }
 
 /* ------------------- APP CONTAINER & SIDEBAR ------------------- */
@@ -94,19 +96,21 @@ body {
     padding: 0;
     margin: 0;
     flex: 1;
+    overflow-y: auto;
 }
 
 .nav-links li {
-    padding: 16px 32px;
-    margin: 8px 16px;
+    padding: 18px 32px;
+    margin: 10px 16px;
     border-radius: var(--radius-md);
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 18px;
     color: var(--gray-text);
-    font-weight: 500;
-    transition: all 0.3s ease;
+    font-weight: 600;
+    font-size: 1.05em;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .nav-links li:hover {
@@ -399,40 +403,43 @@ body {
 
 .custom-input {
     width: 100%;
-    padding: 16px 20px;
+    padding: 18px 22px;
     background: var(--gray-bg);
     border: 2px solid transparent;
     border-radius: var(--radius-md);
-    margin-bottom: 12px;
+    margin-bottom: 14px;
     font-family: inherit;
-    font-size: 15px;
+    font-size: 16px;
     outline: none;
-    transition: all 0.3s ease;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .custom-input:focus {
     background: var(--white);
-    border-color: var(--dark);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+    border-color: var(--primary);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
 }
 
 .custom-btn {
     width: 100%;
-    padding: 16px;
+    padding: 18px;
     background: var(--gray-border);
     color: var(--dark);
     border: none;
     border-radius: var(--radius-md);
     font-weight: 600;
-    font-size: 15px;
+    font-size: 16px;
     font-family: inherit;
     cursor: pointer;
-    transition: all 0.3s ease;
-    margin-bottom: 12px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    margin-bottom: 14px;
+    box-shadow: var(--shadow-soft);
 }
 
 .custom-btn:hover {
     background: #D1D5DB;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
 }
 
 /* ------------------- CART ITEMS ------------------- */
