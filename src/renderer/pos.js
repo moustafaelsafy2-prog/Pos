@@ -180,14 +180,15 @@ function renderCart() {
         const row = document.createElement('div');
         row.className = 'cart-item';
 
+        const escapedNotes = escapeHtml(item.notes || '');
         let notesHtml = '';
-        if (item.notes) {
-            notesHtml = `<div style="font-size: 12px; color: var(--primary); margin-top: 4px;">📝 ${item.notes}</div>`;
+        if (escapedNotes) {
+            notesHtml = `<div style="font-size: 12px; color: var(--primary); margin-top: 4px;">📝 ${escapedNotes}</div>`;
         }
 
         row.innerHTML = `
             <div class="cart-item-info" style="cursor:pointer;" onclick="window.openNotes(${item.cartItemId})" title="Click to add notes">
-                <div class="cart-item-name">${item.name}</div>
+                <div class="cart-item-name">${escapeHtml(item.name)}</div>
                 <div class="cart-item-price">$${item.price.toFixed(2)} x ${item.qty}</div>
                 ${notesHtml}
             </div>
@@ -475,7 +476,7 @@ function renderTableMap() {
         div.onclick = async () => {
             if (t.status === 'occupied') {
                 try {
-                    const order = await window.api.getOrder(t.current_order_id);
+                    const order = await window.api.getOrder(t.active_order_id);
                     if (order) {
                         // Restore order to POS cart to add/remove items
                         cart = order.items.map(i => ({
@@ -680,7 +681,28 @@ document.getElementById('cancel-payment-btn').addEventListener('click', () => {
 });
 
 
-document.getElementById('confirm-payment-btn').addEventListener('click', async () => {
+document.getElementById('confirm-payment-btn').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    if (btn.disabled) return;
+
+    if (cart.length === 0) {
+        alert("Cart is empty");
+        return;
+    }
+
+    // Check for negative quantities
+    const invalidItems = cart.filter(i => i.qty <= 0 || i.price < 0);
+    if (invalidItems.length > 0) {
+        alert("Cart contains invalid items (negative price or quantity)");
+        return;
+    }
+
+    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    if (discountAmount > subtotal) {
+        alert("Discount exceeds subtotal");
+        return;
+    }
+
     // Determine payment method via UI
     const activeMethodBtn = document.querySelector('.payment-btn.active');
     const paymentMethod = activeMethodBtn ? activeMethodBtn.getAttribute('data-method') : 'Cash';
@@ -692,12 +714,14 @@ document.getElementById('confirm-payment-btn').addEventListener('click', async (
     const userId = window.currentUser ? window.currentUser.id : null;
 
     try {
+        btn.disabled = true;
+        btn.textContent = "Processing...";
+
         const orderIdObj = await window.api.submitOrder(
             cart, currentOrderType, currentCustomerId, paymentMethod,
             discountAmount, currentShiftId, pointsRedeemed, selectedTableId, userId, driverId, discountType
         );
 
-        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
         const taxRate = 0.15;
         const taxAmount = (subtotal - discountAmount) * taxRate;
         const finalTotal = subtotal - discountAmount + taxAmount;
@@ -716,12 +740,17 @@ document.getElementById('confirm-payment-btn').addEventListener('click', async (
         document.getElementById('payment-modal').style.display = 'none';
 
         if (currentOrderType === 'Dine-in') {
-            loadTablesForSelection();
             if (typeof loadTables === 'function') loadTables();
+            if (typeof renderTableMap === 'function' && document.getElementById('table-map-modal').style.display === 'flex') {
+                renderTableMap();
+            }
         }
-    } catch (e) {
-        console.error("Payment failed", e);
-        alert("Payment failed");
+    } catch (err) {
+        console.error("Payment failed", err);
+        alert("Payment failed: " + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = window.t('confirm_payment') || "Confirm Payment";
     }
 });
 
