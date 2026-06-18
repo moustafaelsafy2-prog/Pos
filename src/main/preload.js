@@ -3,7 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('api', {
     getCategories: () => ipcRenderer.invoke('db-get-categories'),
     getItems: () => ipcRenderer.invoke('db-get-items'),
-    submitOrder: (cart, orderType, customerId, paymentMethod, discountAmount, shiftId, pointsRedeemed, tableId, userId, driverId) => ipcRenderer.invoke('db-submit-order', cart, orderType, customerId, paymentMethod, discountAmount, shiftId, pointsRedeemed, tableId, userId, driverId),
+    submitOrder: (cart, orderType, customerId, paymentMethod, discountAmount, shiftId, pointsRedeemed, tableId, userId, driverId, discountType) => ipcRenderer.invoke('db-submit-order', cart, orderType, customerId, paymentMethod, discountAmount, shiftId, pointsRedeemed, tableId, userId, driverId, discountType),
     getCustomer: (phone) => ipcRenderer.invoke('db-get-customer', phone),
     getAllCustomers: () => ipcRenderer.invoke('db-get-all-customers'),
     getCustomerOrders: (customerId) => ipcRenderer.invoke('db-get-customer-orders', customerId),
@@ -26,7 +26,7 @@ contextBridge.exposeInMainWorld('api', {
     receivePurchaseOrder: (poId) => ipcRenderer.invoke('db-receive-po', poId),
     getShiftsForAudit: () => ipcRenderer.invoke('db-get-shifts-audit'),
     auditShift: (shiftId) => ipcRenderer.invoke('db-audit-shift', shiftId),
-    suspendOrder: (cart, orderType, customerId, discountAmount, tableId, driverId, userId, shiftId) => ipcRenderer.invoke('db-suspend-order', cart, orderType, customerId, discountAmount, tableId, driverId, userId, shiftId),
+    suspendOrder: (cart, orderType, customerId, discountAmount, tableId, driverId, userId, shiftId, discountType) => ipcRenderer.invoke('db-suspend-order', cart, orderType, customerId, discountAmount, tableId, driverId, userId, shiftId, discountType),
     getSuspendedOrders: () => ipcRenderer.invoke('db-get-suspended-orders'),
     deleteSuspendedOrder: (orderId) => ipcRenderer.invoke('db-delete-suspended-order', orderId),
     getTables: () => ipcRenderer.invoke('db-get-tables'),

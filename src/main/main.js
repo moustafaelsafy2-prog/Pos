@@ -346,6 +346,13 @@ async function runBackgroundSync() {
 }
 
 app.whenReady().then(() => {
+  console.log("=== APP STARTUP INFO ===");
+  console.log("APP PATH:", app.getAppPath());
+  console.log("USER DATA PATH:", app.getPath('userData'));
+  console.log("APP VERSION:", app.getVersion());
+  console.log("BUILD TIME:", new Date().toISOString());
+  console.log("========================");
+
   // Initialize DB in the main process
   dbManager.initDb(app.getPath('userData'));
 
@@ -385,12 +392,12 @@ ipcMain.handle('db-get-items', async () => {
     return await callDb('getItems', );
 });
 
-ipcMain.handle('db-submit-order', async (event, cart, orderType, customerId, paymentMethod, discountAmount, shiftId, pointsRedeemed, tableId, userId, driverId) => {
-    return await callDb('submitOrder', cart, orderType, customerId, paymentMethod, discountAmount, shiftId, pointsRedeemed, tableId, userId, driverId);
+ipcMain.handle('db-submit-order', async (event, cart, orderType, customerId, paymentMethod, discountAmount, shiftId, pointsRedeemed, tableId, userId, driverId, discountType) => {
+    return await callDb('submitOrder', cart, orderType, customerId, paymentMethod, discountAmount, shiftId, pointsRedeemed, tableId, userId, driverId, discountType);
 });
 
-ipcMain.handle('db-suspend-order', async (event, cart, orderType, customerId, discountAmount, tableId, driverId, userId, shiftId) => {
-    return await callDb('suspendOrder', cart, orderType, customerId, discountAmount, tableId, driverId, userId, shiftId);
+ipcMain.handle('db-suspend-order', async (event, cart, orderType, customerId, discountAmount, tableId, driverId, userId, shiftId, discountType) => {
+    return await callDb('suspendOrder', cart, orderType, customerId, discountAmount, tableId, driverId, userId, shiftId, discountType);
 });
 
 ipcMain.handle('db-get-suspended-orders', async (event) => {

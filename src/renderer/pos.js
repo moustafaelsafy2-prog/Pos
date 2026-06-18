@@ -7,6 +7,7 @@ let cart = [];
 let categories = [];
 let allItems = [];
 let discountAmount = 0;
+let discountType = null;
 let currentSearchTerm = '';
 let currentCategoryId = null;
 let currentShiftId = null;
@@ -179,14 +180,15 @@ function renderCart() {
         const row = document.createElement('div');
         row.className = 'cart-item';
 
+        const escapedNotes = escapeHtml(item.notes || '');
         let notesHtml = '';
-        if (item.notes) {
-            notesHtml = `<div style="font-size: 12px; color: var(--primary); margin-top: 4px;">📝 ${item.notes}</div>`;
+        if (escapedNotes) {
+            notesHtml = `<div style="font-size: 12px; color: var(--primary); margin-top: 4px;">📝 ${escapedNotes}</div>`;
         }
 
         row.innerHTML = `
             <div class="cart-item-info" style="cursor:pointer;" onclick="window.openNotes(${item.cartItemId})" title="Click to add notes">
-                <div class="cart-item-name">${item.name}</div>
+                <div class="cart-item-name">${escapeHtml(item.name)}</div>
                 <div class="cart-item-price">$${item.price.toFixed(2)} x ${item.qty}</div>
                 ${notesHtml}
             </div>
@@ -214,7 +216,7 @@ function renderCart() {
 
 // Discount & Hold
 document.getElementById('discount-btn').addEventListener('click', () => {
-    const discountVal = prompt(window.t('add_discount') + " (e.g., 5 for $5, or 10%):", discountAmount);
+    const discountVal = prompt(window.t('add_discount') + " (e.g., 5 for $5, or 10%):", discountAmount > 0 ? (discountType === 'percentage' ? (discountAmount / cart.reduce((sum, item) => sum + (item.price * item.qty), 0) * 100) + '%' : discountAmount) : '');
     if (discountVal !== null && discountVal.trim() !== '') {
         const val = discountVal.trim();
         const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
@@ -225,6 +227,7 @@ document.getElementById('discount-btn').addEventListener('click', () => {
             const percentage = parseFloat(val.replace('%', ''));
             if (!isNaN(percentage) && percentage >= 0 && percentage <= 100) {
                 calculatedDiscount = subtotal * (percentage / 100);
+                discountType = 'percentage';
             } else {
                 return alert("Invalid percentage");
             }
@@ -232,6 +235,7 @@ document.getElementById('discount-btn').addEventListener('click', () => {
             const amount = parseFloat(val);
             if (!isNaN(amount) && amount >= 0) {
                 calculatedDiscount = amount;
+                discountType = 'fixed';
             } else {
                 return alert("Invalid amount");
             }
@@ -242,6 +246,10 @@ document.getElementById('discount-btn').addEventListener('click', () => {
         }
 
         discountAmount = calculatedDiscount;
+        renderCart();
+    } else if (discountVal === '') {
+        discountAmount = 0;
+        discountType = null;
         renderCart();
     }
 });
@@ -256,9 +264,10 @@ document.getElementById('hold-btn').addEventListener('click', async () => {
     const userId = window.currentUser ? window.currentUser.id : null;
 
     try {
-        await window.api.suspendOrder(cart, currentOrderType, currentCustomerId, discountAmount, selectedTableId, driverId, userId, currentShiftId);
+        await window.api.suspendOrder(cart, currentOrderType, currentCustomerId, discountAmount, selectedTableId, driverId, userId, currentShiftId, discountType);
         cart = [];
         discountAmount = 0;
+        discountType = null;
         currentCustomerId = null;
         selectedTableId = null;
         const custDisplay = document.getElementById('customer-display');
@@ -317,7 +326,8 @@ window.resumeOrder = async function(id, orderData) {
 
         currentOrderType = order.order_type;
         currentCustomerId = order.customer_id;
-        discountAmount = order.discount;
+        discountAmount = order.discount_amount || order.discount;
+        discountType = order.discount_type || null;
         selectedTableId = order.table_id;
 
         document.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
@@ -334,12 +344,41 @@ window.resumeOrder = async function(id, orderData) {
 
 // Handle Order Type Change
 document.querySelectorAll('input[name="orderType"]').forEach(radio => {
-    radio.addEventListener('change', (e) => {
+    radio.addEventListener('change', async (e) => {
         const customerPanel = document.getElementById('customer-info-panel');
-        if (e.target.value === 'Delivery') {
+        const tableSelect = document.getElementById('dinein-table-select');
+        const driverSelect = document.getElementById('delivery-driver-select');
+        const tablesMapBtn = document.getElementById('manage-tables-btn');
+
+        currentOrderType = e.target.value;
+
+        if (currentOrderType === 'Delivery') {
             customerPanel.style.display = 'block';
-        } else {
+            tableSelect.style.display = 'none';
+            tablesMapBtn.style.display = 'none';
+            driverSelect.style.display = 'inline-block';
+
+            // Fetch drivers
+            try {
+                const drivers = await window.api.getDrivers();
+                driverSelect.innerHTML = '<option value="">Select Driver</option>';
+                drivers.forEach(d => {
+                    driverSelect.innerHTML += `<option value="${escapeHtml(d.id)}">${escapeHtml(d.name)}</option>`;
+                });
+            } catch (err) {
+                console.error("Failed to load drivers", err);
+            }
+
+        } else if (currentOrderType === 'Dine-in') {
             customerPanel.style.display = 'none';
+            tableSelect.style.display = 'inline-block';
+            tablesMapBtn.style.display = 'inline-block';
+            driverSelect.style.display = 'none';
+        } else { // Takeaway
+            customerPanel.style.display = 'none';
+            tableSelect.style.display = 'none';
+            tablesMapBtn.style.display = 'none';
+            driverSelect.style.display = 'none';
         }
     });
 });
@@ -437,7 +476,7 @@ function renderTableMap() {
         div.onclick = async () => {
             if (t.status === 'occupied') {
                 try {
-                    const order = await window.api.getOrder(t.current_order_id);
+                    const order = await window.api.getOrder(t.active_order_id);
                     if (order) {
                         // Restore order to POS cart to add/remove items
                         cart = order.items.map(i => ({
@@ -453,7 +492,8 @@ function renderTableMap() {
 
                         document.getElementById('dinein-table-select').value = t.id;
                         selectedTableId = t.id;
-                        discountAmount = order.discount || 0;
+                        discountAmount = order.discount_amount || order.discount || 0;
+                        discountType = order.discount_type || null;
                         currentCustomerId = order.customer_id;
 
                         // Set global tracking variable if we wanted to update instead of create new order,
@@ -641,20 +681,47 @@ document.getElementById('cancel-payment-btn').addEventListener('click', () => {
 });
 
 
-document.getElementById('confirm-payment-btn').addEventListener('click', async () => {
-    const paymentMethod = document.getElementById('payment-method').value;
-    const pointsRedeemed = parseFloat(document.getElementById('use-points').value) || 0;
+document.getElementById('confirm-payment-btn').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    if (btn.disabled) return;
+
+    if (cart.length === 0) {
+        alert("Cart is empty");
+        return;
+    }
+
+    // Check for negative quantities
+    const invalidItems = cart.filter(i => i.qty <= 0 || i.price < 0);
+    if (invalidItems.length > 0) {
+        alert("Cart contains invalid items (negative price or quantity)");
+        return;
+    }
+
+    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
+    if (discountAmount > subtotal) {
+        alert("Discount exceeds subtotal");
+        return;
+    }
+
+    // Determine payment method via UI
+    const activeMethodBtn = document.querySelector('.payment-btn.active');
+    const paymentMethod = activeMethodBtn ? activeMethodBtn.getAttribute('data-method') : 'Cash';
+
+    // We don't have use-points element in this design
+    const pointsRedeemed = 0;
 
     const driverId = currentOrderType === 'Delivery' ? document.getElementById('delivery-driver-select').value : null;
     const userId = window.currentUser ? window.currentUser.id : null;
 
     try {
+        btn.disabled = true;
+        btn.textContent = "Processing...";
+
         const orderIdObj = await window.api.submitOrder(
             cart, currentOrderType, currentCustomerId, paymentMethod,
-            discountAmount, currentShiftId, pointsRedeemed, selectedTableId, userId, driverId
+            discountAmount, currentShiftId, pointsRedeemed, selectedTableId, userId, driverId, discountType
         );
 
-        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
         const taxRate = 0.15;
         const taxAmount = (subtotal - discountAmount) * taxRate;
         const finalTotal = subtotal - discountAmount + taxAmount;
@@ -664,6 +731,7 @@ document.getElementById('confirm-payment-btn').addEventListener('click', async (
 
         cart = [];
         discountAmount = 0;
+        discountType = null;
         currentCustomerId = null;
         selectedTableId = null;
         const custDisplay2 = document.getElementById('customer-display');
@@ -672,12 +740,17 @@ document.getElementById('confirm-payment-btn').addEventListener('click', async (
         document.getElementById('payment-modal').style.display = 'none';
 
         if (currentOrderType === 'Dine-in') {
-            loadTablesForSelection();
             if (typeof loadTables === 'function') loadTables();
+            if (typeof renderTableMap === 'function' && document.getElementById('table-map-modal').style.display === 'flex') {
+                renderTableMap();
+            }
         }
-    } catch (e) {
-        console.error("Payment failed", e);
-        alert("Payment failed");
+    } catch (err) {
+        console.error("Payment failed", err);
+        alert("Payment failed: " + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.textContent = window.t('confirm_payment') || "Confirm Payment";
     }
 });
 

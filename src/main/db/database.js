@@ -96,15 +96,17 @@ function setupSchema() {
         db.run(`ALTER TABLE shifts ADD COLUMN user_id INTEGER`, (err) => {
             // Ignore if exists
         });
-        db.run(`CREATE TABLE IF NOT EXISTS restaurant_tables (id INTEGER PRIMARY KEY AUTOINCREMENT, table_number TEXT NOT NULL, status TEXT DEFAULT 'available', current_order_id INTEGER, FOREIGN KEY (current_order_id) REFERENCES orders (id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS restaurant_tables (id INTEGER PRIMARY KEY AUTOINCREMENT, table_number TEXT NOT NULL, status TEXT DEFAULT 'available', active_order_id INTEGER, FOREIGN KEY (active_order_id) REFERENCES orders (id) ON DELETE SET NULL)`);
 
         db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, shift_id INTEGER, user_id INTEGER, customer_id INTEGER, driver_id INTEGER, table_id INTEGER, order_type TEXT DEFAULT 'Dine-in', subtotal REAL DEFAULT 0, tax_amount REAL DEFAULT 0, discount REAL DEFAULT 0, total_amount REAL NOT NULL, payment_method TEXT DEFAULT 'Cash', order_date DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT DEFAULT 'preparing', is_settled INTEGER DEFAULT 0, is_synced INTEGER DEFAULT 0, FOREIGN KEY (customer_id) REFERENCES customers (id), FOREIGN KEY (shift_id) REFERENCES shifts (id), FOREIGN KEY (driver_id) REFERENCES drivers (id), FOREIGN KEY (table_id) REFERENCES restaurant_tables (id))`);
 
         db.run(`ALTER TABLE orders ADD COLUMN is_synced INTEGER DEFAULT 0`, (err) => {});
         db.run(`ALTER TABLE orders ADD COLUMN user_id INTEGER`, (err) => {});
         db.run(`ALTER TABLE orders ADD COLUMN table_id INTEGER`, (err) => {});
+        db.run(`ALTER TABLE orders ADD COLUMN discount_type TEXT`, (err) => {});
+        db.run(`ALTER TABLE orders ADD COLUMN discount_amount REAL DEFAULT 0`, (err) => {});
 
-        db.run(`CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, item_id INTEGER, quantity INTEGER NOT NULL, subtotal REAL NOT NULL, notes TEXT, status TEXT, FOREIGN KEY (order_id) REFERENCES orders (id), FOREIGN KEY (item_id) REFERENCES items (id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS order_items (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id INTEGER, item_id INTEGER, quantity INTEGER NOT NULL, subtotal REAL NOT NULL, notes TEXT, status TEXT, FOREIGN KEY (order_id) REFERENCES orders (id) ON DELETE CASCADE, FOREIGN KEY (item_id) REFERENCES items (id))`);
 
         db.run(`ALTER TABLE order_items ADD COLUMN status TEXT`, (err) => {
             // Ignore if exists
@@ -113,7 +115,7 @@ function setupSchema() {
 
         // Inventory and Recipes
         db.run(`CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, unit TEXT NOT NULL, current_stock REAL DEFAULT 0, low_stock_threshold REAL DEFAULT 10)`);
-        db.run(`CREATE TABLE IF NOT EXISTS recipes (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, inventory_id INTEGER, quantity_required REAL NOT NULL, FOREIGN KEY (item_id) REFERENCES items (id), FOREIGN KEY (inventory_id) REFERENCES inventory (id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS recipes (id INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, inventory_id INTEGER, quantity_required REAL NOT NULL, FOREIGN KEY (item_id) REFERENCES items (id) ON DELETE CASCADE, FOREIGN KEY (inventory_id) REFERENCES inventory (id) ON DELETE CASCADE)`);
 
         // Accounting
         db.run(`CREATE TABLE IF NOT EXISTS suppliers (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, contact_name TEXT, phone TEXT, address TEXT)`);
@@ -968,336 +970,122 @@ function getDashboardStats(startDate = null, endDate = null) {
 }
 
 
-function submitOrder(cart, orderType, customerId, paymentMethod, discountAmount = 0, shiftId = null, pointsRedeemed = 0, tableId = null, userId = null, driverId = null) {
+
+function dbRunPromise(sql, params = []) {
     return new Promise((resolve, reject) => {
+        db.run(sql, params, function (err) {
+            if (err) reject(err);
+            else resolve(this);
+        });
+    });
+}
+
+function dbAllPromise(sql, params = []) {
+    return new Promise((resolve, reject) => {
+        db.all(sql, params, (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+
+function submitOrder(cart, orderType, customerId, paymentMethod, discountAmount = 0, shiftId = null, pointsRedeemed = 0, tableId = null, userId = null, driverId = null, discountType = null) {
+    return new Promise(async (resolve, reject) => {
         let subtotal = 0;
         cart.forEach(item => subtotal += (item.price * item.qty));
         let total = subtotal - discountAmount;
         let taxAmount = total * 0.15;
         total += taxAmount;
 
-        db.serialize(() => {
-            db.run('BEGIN EXCLUSIVE TRANSACTION');
-
-            db.run(`INSERT INTO orders (order_type, status, subtotal, discount, tax_amount, total_amount, customer_id, payment_method, shift_id, table_id, user_id, driver_id)
-                   VALUES (?, 'Completed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [orderType, subtotal, discountAmount, taxAmount, total, customerId, paymentMethod, shiftId, tableId, userId, driverId], function(err) {
-                if (err) {
-                    console.error("[DB ERROR] submitOrder order insert failed:", err);
-                    db.run('ROLLBACK');
-                    return reject(err);
-                }
-                const orderId = this.lastID;
-
-                // Sync wait
-                let itemsProcessed = 0;
-                let hasError = false;
-
-                if (cart.length === 0) {
-                    db.run('COMMIT');
-                    return resolve({ orderId, subtotal, discountAmount, taxAmount, total });
-                }
-
-                cart.forEach(item => {
-                    db.run(`INSERT INTO order_items (order_id, item_id, quantity, subtotal) VALUES (?, ?, ?, ?)`,
-                        [orderId, item.id, item.qty, item.price * item.qty], (err2) => {
-                        if (err2 && !hasError) {
-                            hasError = true;
-                            db.run('ROLLBACK');
-                            return reject(err2);
-                        }
-
-                        // Adjust Inventory sequentially inside the transaction via triggers or direct queries would be better, but doing it safely
-                        db.all(`SELECT inventory_id, quantity_required FROM recipes WHERE item_id = ?`, [item.id], (err3, recipeRows) => {
-                            if (err3 && !hasError) {
-                                hasError = true;
-                                db.run('ROLLBACK');
-                                return reject(err3);
-                            }
-
-                            let recipesProcessed = 0;
-                            if (recipeRows.length === 0) {
-                                checkDone();
-                            } else {
-                                recipeRows.forEach(r => {
-                                    const qtyToDeduct = r.quantity_required * item.qty;
-                                    db.run(`UPDATE inventory SET current_stock = current_stock - ? WHERE id = ?`, [qtyToDeduct, r.inventory_id], (err4) => {
-                                        if (err4 && !hasError) {
-                                            hasError = true;
-                                            db.run('ROLLBACK');
-                                            return reject(err4);
-                                        }
-                                        recipesProcessed++;
-                                        if (recipesProcessed === recipeRows.length) checkDone();
-                                    });
-                                });
-                            }
-                        });
-
-                        function checkDone() {
-                            itemsProcessed++;
-                            if (itemsProcessed === cart.length && !hasError) {
-                                if (tableId && orderType === 'Dine-in') {
-                                    // Order is completed, table becomes available
-                                    db.run(`UPDATE restaurant_tables SET status = 'available', current_order_id = NULL WHERE id = ?`, [tableId], (err5) => {
-                                        if (err5) {
-                                            db.run('ROLLBACK');
-                                            return reject(err5);
-                                        }
-                                        db.run('COMMIT');
-                                        resolve({ orderId, subtotal, discountAmount, taxAmount, total });
-                                    });
-                                } else {
-                                    db.run('COMMIT');
-                                    resolve({ orderId, subtotal, discountAmount, taxAmount, total });
-                                }
-                            }
-                        }
-                    });
-                });
-            });
-        });
-    });
-}
-
-function getCustomerByPhone(phone) {
-    return new Promise((resolve, reject) => {
-        db.get("SELECT * FROM customers WHERE phone = ?", [phone], (err, row) => {
-            if (err) reject(err);
-            else resolve(row);
-        });
-    });
-}
-
-function saveCustomer(customer) {
-    return new Promise((resolve, reject) => {
-        if (customer.id) {
-            db.run(`UPDATE customers SET name = ?, address = ? WHERE id = ?`,
-                [customer.name, customer.address, customer.id], function(err) {
-                if (err) reject(err);
-                else resolve(customer.id);
-            });
-        } else {
-            db.run(`INSERT INTO customers (name, phone, address) VALUES (?, ?, ?)`,
-                [customer.name, customer.phone, customer.address], function(err) {
-                if (err) reject(err);
-                else resolve(this.lastID);
-            });
-        }
-    });
-}
-
-function checkLicense() {
-    return new Promise((resolve, reject) => {
-        const currentMachineId = machineIdSync();
-        db.get(`SELECT * FROM license WHERE machine_id = ? ORDER BY id DESC LIMIT 1`, [currentMachineId], (err, row) => {
-            if (err) return reject(err);
-
-            if (!row) return resolve({ valid: false });
-
-            try {
-                const { publicKeyPath } = ensureKeysExist();
-                if (!fs.existsSync(publicKeyPath)) {
-                    console.error(`Public key not found at: ${publicKeyPath}`);
-                    return resolve({ valid: false });
-                }
-                const publicKey = fs.readFileSync(publicKeyPath, 'utf8');
-                // Verify the JWT stored in the database
-                const decoded = jwt.verify(row.serial_key, publicKey, { algorithms: ['RS256'] });
-
-                // Ensure the token was generated for THIS specific machine
-                if (decoded.machineId !== currentMachineId) {
-                    return resolve({ valid: false });
-                }
-
-                // Check expiration
-                if (new Date(decoded.expiresAt) > new Date()) {
-                    resolve({ valid: true });
-                } else {
-                    resolve({ valid: false });
-                }
-            } catch (error) {
-                // Token is invalid, tampered with, or expired
-                resolve({ valid: false });
-            }
-        });
-    });
-}
-
-function activateLicense(token) {
-    return new Promise((resolve, reject) => {
         try {
-            const currentMachineId = machineIdSync();
-            const { publicKeyPath } = ensureKeysExist();
-            if (!fs.existsSync(publicKeyPath)) {
-                console.error(`Public key not found at: ${publicKeyPath}`);
-                return resolve({ success: false, message: "Public key missing. Cannot activate license." });
-            }
-            const publicKey = fs.readFileSync(publicKeyPath, 'utf8');
-            const decoded = jwt.verify(token, publicKey, { algorithms: ['RS256'] });
+            await dbRunPromise('BEGIN EXCLUSIVE TRANSACTION');
 
-            if (decoded.machineId !== currentMachineId) {
-                return resolve({ success: false, message: "License key is not valid for this machine." });
-            }
+            const orderRes = await dbRunPromise(
+                `INSERT INTO orders (order_type, status, subtotal, discount, tax_amount, total_amount, customer_id, payment_method, shift_id, table_id, user_id, driver_id, discount_type, discount_amount)
+                 VALUES (?, 'Completed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [orderType, subtotal, discountAmount, taxAmount, total, customerId, paymentMethod, shiftId, tableId, userId, driverId, discountType, discountAmount]
+            );
+            const orderId = orderRes.lastID;
 
-            if (new Date(decoded.expiresAt) <= new Date()) {
-                return resolve({ success: false, message: "License key has already expired." });
+            if (cart.length === 0) {
+                await dbRunPromise('COMMIT');
+                return resolve({ orderId, subtotal, discountAmount, taxAmount, total });
             }
 
-            const now = new Date();
+            for (const item of cart) {
+                await dbRunPromise(
+                    `INSERT INTO order_items (order_id, item_id, quantity, subtotal) VALUES (?, ?, ?, ?)`,
+                    [orderId, item.id, item.qty, item.price * item.qty]
+                );
 
-            db.run(`INSERT INTO license (serial_key, activated_at, expires_at, machine_id) VALUES (?, ?, ?, ?)`,
-            [token, now.toISOString(), decoded.expiresAt, currentMachineId], function(err) {
-                if (err) return reject(err);
-                resolve({ success: true, message: "Activation Successful!" });
-            });
+                const recipeRows = await dbAllPromise(`SELECT inventory_id, quantity_required FROM recipes WHERE item_id = ?`, [item.id]);
+                for (const r of recipeRows) {
+                    const qtyToDeduct = r.quantity_required * item.qty;
+                    await dbRunPromise(`UPDATE inventory SET current_stock = current_stock - ? WHERE id = ?`, [qtyToDeduct, r.inventory_id]);
+                }
+            }
+
+            if (tableId && orderType === 'Dine-in') {
+                await dbRunPromise(`UPDATE restaurant_tables SET status = 'available', active_order_id = NULL WHERE id = ?`, [tableId]);
+            }
+
+            await dbRunPromise('COMMIT');
+            resolve({ orderId, subtotal, discountAmount, taxAmount, total });
         } catch (error) {
-            resolve({ success: false, message: "Invalid or Corrupted Serial Key." });
+            console.error("[DB ERROR] submitOrder transaction failed:", error);
+            try {
+                await dbRunPromise('ROLLBACK');
+            } catch (rollbackErr) {
+                console.error("[DB ERROR] Rollback failed:", rollbackErr);
+            }
+            reject(error);
         }
     });
 }
 
-function getUnsyncedOrders() {
-    return new Promise((resolve, reject) => {
-        db.all("SELECT * FROM orders WHERE is_synced = 0 AND status IN ('completed', 'refunded')", [], async (err, orders) => {
-            if (err) return reject(err);
-            if (!orders || orders.length === 0) return resolve([]);
-
-            try {
-                const ordersWithItems = await Promise.all(orders.map(order => {
-                    return new Promise((res, rej) => {
-                        db.all("SELECT * FROM order_items WHERE order_id = ?", [order.id], (err, items) => {
-                            if (err) return rej(err);
-                            order.items = items;
-                            res(order);
-                        });
-                    });
-                }));
-                resolve(ordersWithItems);
-            } catch (e) {
-                reject(e);
-            }
-        });
-    });
-}
-
-function markOrdersSynced(orderIds) {
-    return new Promise((resolve, reject) => {
-        if (!orderIds || orderIds.length === 0) return resolve(true);
-        const placeholders = orderIds.map(() => '?').join(',');
-        db.run(`UPDATE orders SET is_synced = 1 WHERE id IN (${placeholders})`, orderIds, function(err) {
-            if (err) reject(err); else resolve(this.changes);
-        });
-    });
-}
-
-
-function getTables() {
-    return new Promise((resolve, reject) => {
-        db.all('SELECT * FROM restaurant_tables', [], (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
-        });
-    });
-}
-
-function addTable(tableNumber) {
-    return new Promise((resolve, reject) => {
-        db.run('INSERT INTO restaurant_tables (table_number) VALUES (?)', [tableNumber], function(err) {
-            if (err) reject(err);
-            else resolve({ id: this.lastID });
-        });
-    });
-}
-
-
-function getWastage() {
-    return new Promise((resolve, reject) => {
-        db.all(`SELECT w.*, i.name as item_name FROM wastage w JOIN inventory i ON w.inventory_id = i.id ORDER BY w.log_date DESC`, [], (err, rows) => {
-            if (err) reject(err);
-            else resolve(rows);
-        });
-    });
-}
-
-function addWastage(inventoryId, quantity, reason) {
-    return new Promise((resolve, reject) => {
-        db.serialize(() => {
-            db.run('BEGIN TRANSACTION');
-            db.run('INSERT INTO wastage (inventory_id, quantity, reason) VALUES (?, ?, ?)', [inventoryId, quantity, reason], (err) => {
-                if (err) {
-                    db.run('ROLLBACK');
-                    return reject(err);
-                }
-                db.run(`UPDATE inventory SET current_stock = current_stock - ? WHERE id = ?`, [quantity, inventoryId], (err2) => {
-                    if (err2) {
-                        db.run('ROLLBACK');
-                        return reject(err2);
-                    }
-                    db.run('COMMIT');
-                    resolve({success: true});
-                });
-            });
-        });
-    });
-}
-
-
-function suspendOrder(cart, orderType, customerId, discountAmount, tableId, driverId, userId, shiftId) {
-    return new Promise((resolve, reject) => {
+function suspendOrder(cart, orderType, customerId, discountAmount, tableId, driverId, userId, shiftId, discountType) {
+    return new Promise(async (resolve, reject) => {
         let subtotal = 0;
-        cart.forEach(item => { subtotal += item.price * item.qty; }); // Changed to item.qty
+        cart.forEach(item => { subtotal += item.price * item.qty; });
         const totalAfterDiscount = subtotal - discountAmount;
         const taxAmount = totalAfterDiscount * 0.15;
         const totalAmount = totalAfterDiscount + taxAmount;
 
         console.log(`[DB] Suspending order... Shift: ${shiftId}, User: ${userId}, Table: ${tableId}`);
-        db.serialize(() => {
-            db.run("BEGIN TRANSACTION");
-            db.run(`INSERT INTO orders (shift_id, user_id, customer_id, driver_id, table_id, order_type, subtotal, tax_amount, discount, total_amount, status, is_settled) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'suspended', 0)`,
-            [shiftId, userId, customerId, driverId, tableId, orderType, subtotal, taxAmount, discountAmount, totalAmount], function(err) {
-                if(err) {
-                    console.error(`[DB ERROR] Failed to insert suspended order:`, err);
-                    db.run("ROLLBACK"); return reject(err);
-                }
-                const orderId = this.lastID;
-                console.log(`[DB] Suspended order created with ID: ${orderId}`);
+        try {
+            await dbRunPromise("BEGIN TRANSACTION");
+            const orderRes = await dbRunPromise(
+                `INSERT INTO orders (shift_id, user_id, customer_id, driver_id, table_id, order_type, subtotal, tax_amount, discount, total_amount, status, is_settled, discount_type, discount_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'suspended', 0, ?, ?)`,
+                [shiftId, userId, customerId, driverId, tableId, orderType, subtotal, taxAmount, discountAmount, totalAmount, discountType, discountAmount]
+            );
 
-                const stmt = db.prepare(`INSERT INTO order_items (order_id, item_id, quantity, subtotal, notes) VALUES (?, ?, ?, ?, ?)`);
-                let errors = null;
+            const orderId = orderRes.lastID;
+            console.log(`[DB] Suspended order created with ID: ${orderId}`);
 
-                cart.forEach(item => {
-                    const itemSubtotal = item.price * item.qty;
-                    stmt.run([orderId, item.id, item.qty, itemSubtotal, item.notes || ''], (err) => {
-                        if (err) {
-                            console.error(`[DB ERROR] Failed to insert suspended item ${item.id}:`, err);
-                            errors = err;
-                        }
-                    });
-                });
+            for (const item of cart) {
+                const itemSubtotal = item.price * item.qty;
+                await dbRunPromise(
+                    `INSERT INTO order_items (order_id, item_id, quantity, subtotal, notes) VALUES (?, ?, ?, ?, ?)`,
+                    [orderId, item.id, item.qty, itemSubtotal, item.notes || '']
+                );
+            }
 
-                stmt.finalize((err) => {
-                    if (errors || err) {
-                        console.error(`[DB ERROR] Finalizing order items failed:`, errors || err);
-                        db.run("ROLLBACK");
-                        reject(errors || err || new Error("Failed to insert suspended items"));
-                    } else {
-                        if (tableId && orderType === 'Dine-in') {
-                            console.log(`[DB] Updating table ${tableId} to occupied`);
-                            db.run(`UPDATE restaurant_tables SET status = 'occupied', current_order_id = ? WHERE id = ?`, [orderId, tableId], (err) => {
-                                if(err) {
-                                    console.error(`[DB ERROR] Failed to update table status:`, err);
-                                    db.run("ROLLBACK"); return reject(err);
-                                }
-                                db.run("COMMIT", () => resolve(orderId));
-                            });
-                        } else {
-                            db.run("COMMIT", () => resolve(orderId));
-                        }
-                    }
-                });
-            });
-        });
+            if (tableId && orderType === 'Dine-in') {
+                console.log(`[DB] Updating table ${tableId} to occupied`);
+                await dbRunPromise(`UPDATE restaurant_tables SET status = 'occupied', active_order_id = ? WHERE id = ?`, [orderId, tableId]);
+            }
+
+            await dbRunPromise("COMMIT");
+            resolve(orderId);
+        } catch (error) {
+            console.error(`[DB ERROR] Suspending order failed:`, error);
+            try {
+                await dbRunPromise("ROLLBACK");
+            } catch (rollbackErr) {
+                console.error("[DB ERROR] Rollback failed:", rollbackErr);
+            }
+            reject(error);
+        }
     });
 }
 
@@ -1349,13 +1137,177 @@ function deleteSuspendedOrder(orderId) {
         db.serialize(() => {
             db.run("BEGIN TRANSACTION");
             // Free the table
-            db.run(`UPDATE restaurant_tables SET status = 'available', current_order_id = NULL WHERE current_order_id = ?`, [orderId]);
+            db.run(`UPDATE restaurant_tables SET status = 'available', active_order_id = NULL WHERE active_order_id = ?`, [orderId]);
             db.run(`DELETE FROM order_items WHERE order_id = ?`, [orderId]);
             db.run(`DELETE FROM orders WHERE id = ?`, [orderId], function(err) {
                 if (err) { db.run("ROLLBACK"); reject(err); }
                 else { db.run("COMMIT", () => resolve(this.changes)); }
             });
         });
+    });
+}
+
+
+function checkLicense() {
+    return new Promise((resolve, reject) => {
+        const currentMachineId = machineIdSync();
+        db.get(`SELECT * FROM license WHERE machine_id = ? ORDER BY id DESC LIMIT 1`, [currentMachineId], (err, row) => {
+            if (err) return reject(err);
+
+            if (!row) return resolve({ valid: false });
+
+            try {
+                const { publicKeyPath } = ensureKeysExist();
+                if (!fs.existsSync(publicKeyPath)) {
+                    console.error(`Public key not found at: ${publicKeyPath}`);
+                    return resolve({ valid: false });
+                }
+                const publicKey = fs.readFileSync(publicKeyPath, 'utf8');
+                // Verify the JWT stored in the database
+                const decoded = jwt.verify(row.serial_key, publicKey, { algorithms: ['RS256'] });
+
+                // Ensure the token was generated for THIS specific machine
+                if (decoded.machineId !== currentMachineId) {
+                    return resolve({ valid: false });
+                }
+
+                const currentTime = new Date();
+                const expiresAt = new Date(decoded.expiresAt);
+                const activatedAt = new Date(row.activated_at);
+
+                // Check expiration and time rollback exploit (current time cannot be before activation time)
+                if (currentTime < activatedAt) {
+                    console.warn("Time rollback detected!");
+                    resolve({ valid: false });
+                } else if (currentTime < expiresAt) {
+                    resolve({ valid: true });
+                } else {
+                    resolve({ valid: false });
+                }
+            } catch (error) {
+                // Token is invalid, tampered with, or expired
+                resolve({ valid: false });
+            }
+        });
+    });
+}
+
+function activateLicense(token) {
+    return new Promise((resolve, reject) => {
+        try {
+            const currentMachineId = machineIdSync();
+            const { publicKeyPath } = ensureKeysExist();
+            if (!fs.existsSync(publicKeyPath)) {
+                console.error(`Public key not found at: ${publicKeyPath}`);
+                return resolve({ success: false, message: "Public key missing. Cannot activate license." });
+            }
+            const publicKey = fs.readFileSync(publicKeyPath, 'utf8');
+            const decoded = jwt.verify(token, publicKey, { algorithms: ['RS256'] });
+
+            if (decoded.machineId !== currentMachineId) {
+                return resolve({ success: false, message: "License key is not valid for this machine." });
+            }
+
+            db.run(`INSERT INTO license (serial_key, activated_at, expires_at, machine_id) VALUES (?, ?, ?, ?)`,
+            [token, new Date().toISOString(), decoded.expiresAt, currentMachineId], function(err) {
+                if (err) resolve({ success: false, message: "Database error." });
+                else resolve({ success: true });
+            });
+        } catch (e) {
+            resolve({ success: false, message: "Invalid or expired key." });
+        }
+    });
+}
+
+
+function getTables() {
+    return new Promise((resolve, reject) => {
+        db.all('SELECT * FROM restaurant_tables', [], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+
+function addTable(tableNumber) {
+    return new Promise((resolve, reject) => {
+        db.run('INSERT INTO restaurant_tables (table_number) VALUES (?)', [tableNumber], function(err) {
+            if (err) reject(err);
+            else resolve(this.lastID);
+        });
+    });
+}
+
+function getWastage() {
+    return new Promise((resolve, reject) => {
+        const q = `SELECT w.*, i.name as item_name, i.unit FROM wastage w JOIN inventory i ON w.inventory_id = i.id ORDER BY w.log_date DESC`;
+        db.all(q, [], (err, rows) => {
+            if (err) reject(err);
+            else resolve(rows);
+        });
+    });
+}
+
+function addWastage(invId, qty, reason) {
+    return new Promise((resolve, reject) => {
+        db.serialize(() => {
+            db.run('BEGIN TRANSACTION');
+            db.run('INSERT INTO wastage (inventory_id, quantity, reason) VALUES (?, ?, ?)', [invId, qty, reason]);
+            db.run('UPDATE inventory SET current_stock = current_stock - ? WHERE id = ?', [qty, invId], function(err) {
+                if (err) {
+                    db.run('ROLLBACK');
+                    reject(err);
+                } else {
+                    db.run('COMMIT');
+                    resolve(true);
+                }
+            });
+        });
+    });
+}
+
+
+function getUnsyncedOrders() {
+    return new Promise((resolve, reject) => {
+        db.all("SELECT * FROM orders WHERE is_synced = 0", [], (err, rows) => {
+            if (err) reject(err); else resolve(rows);
+        });
+    });
+}
+
+function markOrdersSynced(orderIds) {
+    if(!orderIds || orderIds.length === 0) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+        const placeholders = orderIds.map(() => '?').join(',');
+        db.run(`UPDATE orders SET is_synced = 1 WHERE id IN (${placeholders})`, orderIds, function(err) {
+            if (err) reject(err); else resolve(this.changes);
+        });
+    });
+}
+
+
+function getCustomerByPhone(phone) {
+    return new Promise((resolve, reject) => {
+        db.get('SELECT * FROM customers WHERE phone = ?', [phone], (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+        });
+    });
+}
+
+function saveCustomer(customer) {
+    return new Promise((resolve, reject) => {
+        if (customer.id) {
+            db.run('UPDATE customers SET name = ?, address = ? WHERE id = ?', [customer.name, customer.address, customer.id], function(err) {
+                if (err) reject(err);
+                else resolve(customer.id);
+            });
+        } else {
+            db.run('INSERT INTO customers (name, phone, address) VALUES (?, ?, ?)', [customer.name, customer.phone, customer.address], function(err) {
+                if (err) reject(err);
+                else resolve(this.lastID);
+            });
+        }
     });
 }
 
